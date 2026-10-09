@@ -1,79 +1,73 @@
 {
     "bleeding_risk": "Low",
-    "movement_risk": "Medium",
+    "movement_risk": "Low",
     "posture_risk": "Low",
     "summary": [
         "Visual analysis indicates low bleeding risk.",
-        "Movement pattern classified as medium risk.",
+        "Movement pattern classified as low risk.",
         "Body posture assessment shows low risk."
     ],
     "diagnosis": {
-        "condition": "Unclassified Visual Pattern \u2013 Requires Clinical Correlation",
-        "severity": "Moderate",
-        "severity_color": "info",
-        "description": "The combination of camera observations does not match a standard pattern. This may indicate an evolving situation or atypical presentation. Clinical correlation with sensor data and patient history is strongly recommended.",
+        "condition": "No Visible Emergency Detected \u2013 Standard Monitoring",
+        "severity": "Low",
+        "severity_color": "success",
+        "description": "Camera analysis shows no external bleeding, normal voluntary movement, and a stable upright or seated posture. No acute visual emergency is identified. The patient appears to be conscious and physically responsive.",
         "probable_causes": [
-            "Atypical injury pattern",
-            "Mixed medical and traumatic presentation",
-            "Environmental or positional artifact in camera data"
+            "Non-traumatic medical complaint (chest pain, dizziness, weakness)",
+            "Anxiety or panic episode",
+            "Mild allergic reaction",
+            "Post-event observation (patient stabilized before pickup)"
         ],
         "verification_tests": [
             {
-                "test": "Full trauma survey (primary + secondary)",
-                "purpose": "Systematic head-to-toe examination"
-            },
-            {
-                "test": "Complete blood panel (CBC, BMP, Coag)",
-                "purpose": "Comprehensive baseline labs"
-            },
-            {
-                "test": "CT Head + Chest + Abdomen/Pelvis",
-                "purpose": "Pan-scan to identify occult injury"
+                "test": "Complete vital signs assessment",
+                "purpose": "Confirm hemodynamic stability"
             },
             {
                 "test": "12-Lead ECG",
-                "purpose": "Rule out cardiac etiology"
+                "purpose": "Rule out silent cardiac event"
             },
             {
-                "test": "Blood Glucose",
-                "purpose": "Rule out metabolic emergency"
+                "test": "Focused history and physical exam",
+                "purpose": "Identify non-visual complaints"
+            },
+            {
+                "test": "Blood glucose check",
+                "purpose": "Rule out hypoglycemia or diabetic issue"
             }
         ],
         "hospital_preparation": [
             {
                 "category": "Teams",
                 "details": [
-                    "Emergency medicine team for full evaluation",
-                    "Trauma team on low-threshold standby"
+                    "Emergency physician for standard triage"
                 ]
             },
             {
                 "category": "Equipment",
                 "details": [
-                    "Full monitoring setup",
-                    "Advanced airway equipment ready",
-                    "Portable ultrasound"
+                    "Standard monitoring equipment",
+                    "ECG machine available"
                 ]
             },
             {
                 "category": "Supplies",
                 "details": [
-                    "Blood products on low-threshold order",
-                    "IV fluids and standard emergency medications"
+                    "IV access supplies",
+                    "Standard medication tray"
                 ]
             },
             {
                 "category": "Room Setup",
                 "details": [
-                    "Monitored bed in ED resuscitation area",
-                    "CT scanner availability confirmed"
+                    "Standard examination room"
                 ]
             }
         ],
-        "overall_risk": "Medium",
+        "overall_risk": "Low",
         "camera_inputs": {
             "bleeding_risk": "Low",
-            "movement_risk": "Medium",
+            "movement_risk": "Low",
             "posture_risk": "Low"
         },
         "history_unavailable": false
