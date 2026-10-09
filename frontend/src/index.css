@@ -7,3 +7,10 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
+
+/*
+ * Bootstrap grid class names that are also Tailwind utilities with different
+ * meaning (Tailwind `col-3` = `grid-column: 3`). Never generate them, so the
+ * legacy Bootstrap layout is unaffected.
+ */
+@source not inline("col-{1,2,3,4,5,6,7,8,9,10,11,12}");

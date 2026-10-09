@@ -122,11 +122,11 @@ function HistoryContent({ history }: { history: PatientHistory }) {
                   style={{ width: `${accuracy}%` }}
                 ></div>
               </div>
-              <div className="d-flex justify-content-between align-items-center mb-3">
+              <div className="d-flex justify-content-between align-items-center mb-2">
                 <span>Response Time</span>
                 <strong>{history.response_time} min</strong>
               </div>
-              <div className="d-flex justify-content-between align-items-center mb-3">
+              <div className="d-flex justify-content-between align-items-center mb-2">
                 <span>Emergency Contact</span>
                 <strong>{history.patient_summary.emergency_contact}</strong>
               </div>
