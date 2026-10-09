@@ -1,0 +1,81 @@
+{
+    "bleeding_risk": "Low",
+    "movement_risk": "Medium",
+    "posture_risk": "Low",
+    "summary": [
+        "Visual analysis indicates low bleeding risk.",
+        "Movement pattern classified as medium risk.",
+        "Body posture assessment shows low risk."
+    ],
+    "diagnosis": {
+        "condition": "Unclassified Visual Pattern \u2013 Requires Clinical Correlation",
+        "severity": "Moderate",
+        "severity_color": "info",
+        "description": "The combination of camera observations does not match a standard pattern. This may indicate an evolving situation or atypical presentation. Clinical correlation with sensor data and patient history is strongly recommended.",
+        "probable_causes": [
+            "Atypical injury pattern",
+            "Mixed medical and traumatic presentation",
+            "Environmental or positional artifact in camera data"
+        ],
+        "verification_tests": [
+            {
+                "test": "Full trauma survey (primary + secondary)",
+                "purpose": "Systematic head-to-toe examination"
+            },
+            {
+                "test": "Complete blood panel (CBC, BMP, Coag)",
+                "purpose": "Comprehensive baseline labs"
+            },
+            {
+                "test": "CT Head + Chest + Abdomen/Pelvis",
+                "purpose": "Pan-scan to identify occult injury"
+            },
+            {
+                "test": "12-Lead ECG",
+                "purpose": "Rule out cardiac etiology"
+            },
+            {
+                "test": "Blood Glucose",
+                "purpose": "Rule out metabolic emergency"
+            }
+        ],
+        "hospital_preparation": [
+            {
+                "category": "Teams",
+                "details": [
+                    "Emergency medicine team for full evaluation",
+                    "Trauma team on low-threshold standby"
+                ]
+            },
+            {
+                "category": "Equipment",
+                "details": [
+                    "Full monitoring setup",
+                    "Advanced airway equipment ready",
+                    "Portable ultrasound"
+                ]
+            },
+            {
+                "category": "Supplies",
+                "details": [
+                    "Blood products on low-threshold order",
+                    "IV fluids and standard emergency medications"
+                ]
+            },
+            {
+                "category": "Room Setup",
+                "details": [
+                    "Monitored bed in ED resuscitation area",
+                    "CT scanner availability confirmed"
+                ]
+            }
+        ],
+        "overall_risk": "Medium",
+        "camera_inputs": {
+            "bleeding_risk": "Low",
+            "movement_risk": "Medium",
+            "posture_risk": "Low"
+        },
+        "history_unavailable": false
+    }
+}
