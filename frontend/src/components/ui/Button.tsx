@@ -6,13 +6,14 @@ import { cn } from './cn'
 type Variant = 'primary' | 'secondary' | 'ghost'
 
 const VARIANT: Record<Variant, string> = {
-  primary: 'bg-accent text-accent-ink hover:bg-accent-hover shadow-[0_1px_0_rgb(255_255_255/0.15)_inset]',
+  primary:
+    'brand-gradient text-white shadow-[0_1px_0_rgb(255_255_255/0.2)_inset,0_10px_24px_-12px_rgb(8_145_178/0.75)] hover:brightness-110 hover:shadow-[0_1px_0_rgb(255_255_255/0.2)_inset,0_14px_28px_-12px_rgb(8_145_178/0.85)]',
   secondary: 'border border-line-strong bg-surface text-ink hover:bg-surface-2',
   ghost: 'text-ink-2 hover:bg-surface-2 hover:text-ink',
 }
 
 const BASE =
-  'inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-sm font-medium whitespace-nowrap transition-[background-color,color,transform] duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50'
+  'inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-sm font-semibold whitespace-nowrap transition-[background-color,color,transform,box-shadow,filter] duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50'
 
 interface CommonProps {
   variant?: Variant

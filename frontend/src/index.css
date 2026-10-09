@@ -1,13 +1,15 @@
 /*
- * Design system - "Clinical precision"
- * Light-first, cool slate neutrals, one teal accent. Red / amber / green are
- * reserved for clinical status and always ship with an icon + label.
+ * Design system - "Clinical precision, in colour"
+ * Plus Jakarta Sans, cool neutrals, a teal-to-sky brand gradient and a family of
+ * subtle card tints (rose, sky, violet, amber, emerald, teal, indigo, fuchsia).
+ * Red / amber / green status colours stay reserved for clinical state and always
+ * ship with an icon + label.
  *
  * Shape system (locked): cards 16px, controls & inner panels 10px, badges 6px,
  * round only for live dots and avatars.
  */
 @import "tailwindcss";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/plus-jakarta-sans";
 @import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -16,8 +18,8 @@
   color-scheme: light;
 
   /* Surfaces */
-  --bg: #f4f7f8;
-  --surface: #fcfdfd;
+  --bg: #f3f5fa;
+  --surface: #fdfdff;
   --surface-2: #eef3f5;
   --surface-3: #e4ebee;
   --line: rgb(16 42 56 / 0.09);
@@ -34,6 +36,13 @@
   --accent-ink: #f6fdfd;
   --accent-soft: rgb(11 116 128 / 0.09);
   --accent-ring: rgb(11 116 128 / 0.35);
+  --accent-2: #2563eb;
+  /* Deep stops: white text stays >= 4.5:1 across the whole gradient */
+  --brand-gradient: linear-gradient(135deg, #0f766e 0%, #0e7490 48%, #1d4ed8 100%);
+
+  /* Default card tint = brand teal (overridden per card with data-tint) */
+  --tint: #0d9488;
+  --tint-ink: #0f766e;
 
   /* Clinical status: fill (marks / dots) + ink (text on soft background) + soft background */
   --ok: #15964f;
@@ -69,8 +78,8 @@
 .dark {
   color-scheme: dark;
 
-  --bg: #0a1015;
-  --surface: #10181f;
+  --bg: #090d14;
+  --surface: #0f151e;
   --surface-2: #16212a;
   --surface-3: #1d2a34;
   --line: rgb(214 232 242 / 0.08);
@@ -85,6 +94,11 @@
   --accent-ink: #061417;
   --accent-soft: rgb(53 180 189 / 0.12);
   --accent-ring: rgb(53 180 189 / 0.4);
+  --accent-2: #60a5fa;
+  --brand-gradient: linear-gradient(135deg, #0f766e 0%, #0e7490 48%, #1d4ed8 100%);
+
+  --tint: #2dd4bf;
+  --tint-ink: #5eead4;
 
   --ok: #34c06e;
   --ok-ink: #6fd89a;
@@ -115,7 +129,7 @@
 }
 
 @theme inline {
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --color-bg: var(--bg);
@@ -167,10 +181,10 @@
 
   body {
     min-height: 100dvh;
-    background: var(--bg);
+    /* Transparent so the fixed ambient glow (body::before, z-index -1) shows; html paints --bg. */
+    background: transparent;
     color: var(--ink);
     font-family: var(--font-sans);
-    font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: clip;
@@ -231,6 +245,80 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * Card tints. Each [data-tint] sets --tint (mark / icon colour) and --tint-ink
+ * (text on the soft chip). Washes and borders are mixed from --tint so every
+ * family stays equally subtle in both themes.
+ * ------------------------------------------------------------------------- */
+[data-tint="rose"] { --tint: #e11d48; --tint-ink: #be123c; }
+[data-tint="sky"] { --tint: #0284c7; --tint-ink: #0369a1; }
+[data-tint="violet"] { --tint: #7c3aed; --tint-ink: #6d28d9; }
+[data-tint="amber"] { --tint: #d97706; --tint-ink: #b45309; }
+[data-tint="emerald"] { --tint: #059669; --tint-ink: #047857; }
+[data-tint="teal"] { --tint: #0d9488; --tint-ink: #0f766e; }
+[data-tint="indigo"] { --tint: #4f46e5; --tint-ink: #4338ca; }
+[data-tint="fuchsia"] { --tint: #c026d3; --tint-ink: #a21caf; }
+
+.dark [data-tint="rose"], .dark[data-tint="rose"] { --tint: #fb7185; --tint-ink: #fda4af; }
+.dark [data-tint="sky"], .dark[data-tint="sky"] { --tint: #38bdf8; --tint-ink: #7dd3fc; }
+.dark [data-tint="violet"], .dark[data-tint="violet"] { --tint: #a78bfa; --tint-ink: #c4b5fd; }
+.dark [data-tint="amber"], .dark[data-tint="amber"] { --tint: #fbbf24; --tint-ink: #fcd34d; }
+.dark [data-tint="emerald"], .dark[data-tint="emerald"] { --tint: #34d399; --tint-ink: #6ee7b7; }
+.dark [data-tint="teal"], .dark[data-tint="teal"] { --tint: #2dd4bf; --tint-ink: #5eead4; }
+.dark [data-tint="indigo"], .dark[data-tint="indigo"] { --tint: #818cf8; --tint-ink: #a5b4fc; }
+.dark [data-tint="fuchsia"], .dark[data-tint="fuchsia"] { --tint: #e879f9; --tint-ink: #f0abfc; }
+
+@layer components {
+  /* Tinted card: a soft wash of the hue in the top-left corner fading into the surface. */
+  .card-tinted {
+    background:
+      radial-gradient(120% 90% at 0% 0%, color-mix(in oklab, var(--tint) 9%, transparent) 0%, transparent 60%),
+      linear-gradient(180deg, color-mix(in oklab, var(--tint) 3%, var(--surface)) 0%, var(--surface) 70%);
+    border-color: color-mix(in oklab, var(--tint) 16%, var(--line));
+  }
+  .dark .card-tinted {
+    background:
+      radial-gradient(120% 90% at 0% 0%, color-mix(in oklab, var(--tint) 14%, transparent) 0%, transparent 60%),
+      linear-gradient(180deg, color-mix(in oklab, var(--tint) 5%, var(--surface)) 0%, var(--surface) 70%);
+    border-color: color-mix(in oklab, var(--tint) 22%, var(--line));
+  }
+  .card-tinted:hover {
+    box-shadow:
+      0 1px 2px rgb(16 52 70 / 0.05),
+      0 14px 32px -18px color-mix(in oklab, var(--tint) 45%, transparent);
+  }
+
+  /* Icon chip in the card's hue */
+  .tint-chip {
+    background: color-mix(in oklab, var(--tint) 13%, transparent);
+    color: var(--tint-ink);
+  }
+  .tint-text { color: var(--tint-ink); }
+  .tint-fill { background: var(--tint); }
+  .tint-bar { background: linear-gradient(90deg, var(--tint), color-mix(in oklab, var(--tint) 40%, transparent)); }
+
+  .brand-gradient { background: var(--brand-gradient); }
+}
+
+/* Ambient page glow: fixed, pointer-events-none, never repainted on scroll. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42rem 28rem at 8% -6%, rgb(13 148 136 / 0.10), transparent 70%),
+    radial-gradient(38rem 26rem at 96% 2%, rgb(124 58 237 / 0.08), transparent 70%),
+    radial-gradient(40rem 30rem at 70% 108%, rgb(225 29 72 / 0.06), transparent 70%);
+}
+.dark body::before {
+  background:
+    radial-gradient(42rem 28rem at 8% -6%, rgb(45 212 191 / 0.10), transparent 70%),
+    radial-gradient(38rem 26rem at 96% 2%, rgb(167 139 250 / 0.09), transparent 70%),
+    radial-gradient(40rem 30rem at 70% 108%, rgb(251 113 133 / 0.06), transparent 70%);
+}
+
 /* Value-change cue for live readings (opacity only; disabled for reduced motion) */
 @keyframes live-flash {
   0% {
@@ -255,6 +343,14 @@
   }
   [data-print-hide] {
     display: none !important;
+  }
+  body::before {
+    display: none;
+  }
+  /* Sections that have not scrolled into view yet must still print. */
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
   }
   [data-print-card] {
     break-inside: avoid;

@@ -1,295 +1,130 @@
-// Telemetry sparkline charts - ported 1:1 from templates/dashboard.html
-// (the original simulates the chart traces with random data around fixed baselines).
-import type { ChartConfiguration } from 'chart.js'
+// Telemetry traces for the dashboard vital cards. The traces are simulated (as in the original
+// app) around fixed baselines; styling follows the dataviz mark specs via chart tokens.
+import type { ChartConfiguration, TooltipItem } from 'chart.js'
+import { axes, withAlpha, type ChartTokens } from '../../components/charts/chartTheme'
 
 export type SparklineKey = 'hr' | 'spo2' | 'bp' | 'rr' | 'temp' | 'ecg'
 
-function generateTimeData(minutes = 10): Date[] {
-  const data: Date[] = []
-  const now = new Date()
-  for (let i = minutes * 60; i >= 0; i -= 5) {
-    data.push(new Date(now.getTime() - i * 1000))
-  }
-  return data
+const POINTS = 121 // 10 minutes at 5-second resolution
+
+function timeLabels(): string[] {
+  const now = Date.now()
+  return Array.from({ length: POINTS }, (_, i) =>
+    new Date(now - (POINTS - 1 - i) * 5000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  )
 }
 
-export function generateHRData(): number[] {
-  const baselineHR = 85
-  return generateTimeData().map(() => baselineHR + Math.random() * 30 - 10)
-}
+const series = (fn: () => number) => Array.from({ length: POINTS }, fn)
 
-export function generateSpO2Data(): number[] {
-  const baselineSpo2 = 96
-  return generateTimeData().map(() => Math.min(100, Math.max(88, baselineSpo2 + Math.random() * 6 - 3)))
-}
-
-export function generateBPData(): { systolic: number[]; diastolic: number[] } {
-  return {
-    systolic: generateTimeData().map(() => 120 + Math.random() * 40 - 10),
-    diastolic: generateTimeData().map(() => 75 + Math.random() * 20 - 5),
-  }
-}
-
-export function generateRRData(): number[] {
-  const baselineRR = 16
-  return generateTimeData().map(() => baselineRR + Math.random() * 8 - 4)
-}
-
-export function generateTempData(): number[] {
-  const baselineTemp = 37.0
-  return generateTimeData().map(() => baselineTemp + Math.random() * 1.5 - 0.5)
-}
+export const generateHRData = () => series(() => 85 + Math.random() * 30 - 10)
+export const generateSpO2Data = () => series(() => Math.min(100, Math.max(88, 96 + Math.random() * 6 - 3)))
+export const generateBPData = () => ({ systolic: series(() => 120 + Math.random() * 40 - 10), diastolic: series(() => 75 + Math.random() * 20 - 5) })
+export const generateRRData = () => series(() => 16 + Math.random() * 8 - 4)
+// Same range as the original 36.5-38.0 °C trace, expressed in °F to match the displayed readings.
+export const generateTempData = () => series(() => 97.7 + Math.random() * 2.7)
 
 export function generateECGData(): number[] {
-  const ecgPoints: number[] = []
+  const points: number[] = []
   for (let i = 0; i < 100; i++) {
     let value = 0
     const phase = i % 25
-
-    // P wave
     if (phase < 3) value = Math.sin((phase * Math.PI) / 3) * 0.2
-    // QRS complex
     else if (phase >= 8 && phase < 12) {
       if (phase === 9) value = -0.3
       else if (phase === 10) value = 1.2
       else if (phase === 11) value = -0.2
-    }
-    // T wave
-    else if (phase >= 15 && phase < 20) value = Math.sin(((phase - 15) * Math.PI) / 5) * 0.4
-
-    ecgPoints.push(value + (Math.random() * 0.05 - 0.025))
+    } else if (phase >= 15 && phase < 20) value = Math.sin(((phase - 15) * Math.PI) / 5) * 0.4
+    points.push(value + (Math.random() * 0.05 - 0.025))
   }
-  return ecgPoints
+  return points
+}
+
+interface TraceSpec {
+  unit: string
+  decimals: number
+  yMin: number
+  yMax: number
+  fill: boolean
+  data: () => number[][]
+  datasetLabels: string[]
+}
+
+const SPECS: Record<Exclude<SparklineKey, 'ecg'>, TraceSpec> = {
+  hr: { unit: 'BPM', decimals: 0, yMin: 50, yMax: 150, fill: true, data: () => [generateHRData()], datasetLabels: ['Heart rate'] },
+  spo2: { unit: '%', decimals: 1, yMin: 85, yMax: 100, fill: true, data: () => [generateSpO2Data()], datasetLabels: ['SpO₂'] },
+  bp: {
+    unit: 'mmHg',
+    decimals: 0,
+    yMin: 60,
+    yMax: 160,
+    fill: false,
+    data: () => {
+      const bp = generateBPData()
+      return [bp.systolic, bp.diastolic]
+    },
+    datasetLabels: ['Systolic', 'Diastolic'],
+  },
+  rr: { unit: 'br/min', decimals: 0, yMin: 8, yMax: 30, fill: true, data: () => [generateRRData()], datasetLabels: ['Respiration'] },
+  temp: { unit: '°F', decimals: 1, yMin: 96, yMax: 102, fill: true, data: () => [generateTempData()], datasetLabels: ['Temperature'] },
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createSparklineConfig(chartType: SparklineKey): ChartConfiguration<'line', any, any> {
-  const timeLabels = generateTimeData().map(d =>
-    d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-  )
+export function createSparklineConfig(key: SparklineKey, t: ChartTokens, expanded: boolean): ChartConfiguration<'line', any, any> {
+  if (key === 'ecg') {
+    return {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: 100 }, (_, i) => i),
+        datasets: [{ label: 'ECG', data: generateECGData(), borderColor: t.tint, borderWidth: 1.5, tension: 0, fill: false, pointRadius: 0 }],
+      },
+      options: {
+        animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { display: false }, y: { display: false } },
+      },
+    }
+  }
 
-  switch (chartType) {
-    case 'spo2':
-      return {
-        type: 'line',
-        data: {
-          labels: timeLabels,
-          datasets: [
-            {
-              label: 'SpO₂ (%)',
-              data: generateSpO2Data(),
-              borderColor: '#3498db',
-              backgroundColor: 'rgba(52, 152, 219, 0.1)',
-              borderWidth: 2,
-              tension: 0.4,
-              fill: true,
-              pointRadius: 0,
-              pointHoverRadius: 4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          // The original also declared an "annotation" danger zone, but the annotation plugin was never loaded.
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: context => `${(context.parsed.y as number).toFixed(1)}%` } },
-          },
-          scales: {
-            y: { beginAtZero: false, min: 85, max: 100, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: value => value + '%' } },
-            x: { display: false },
+  const spec = SPECS[key]
+  // One series = one colour (accent); BP's two series use the first two categorical slots.
+  const colors = spec.datasetLabels.length > 1 ? [t.series[0], t.series[1]] : [t.tint]
+  return {
+    type: 'line',
+    data: {
+      labels: timeLabels(),
+      datasets: spec.data().map((data, index) => ({
+        label: spec.datasetLabels[index],
+        data,
+        borderColor: colors[index],
+        backgroundColor: withAlpha(colors[index], 0.1),
+        fill: spec.fill,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: colors[index],
+      })),
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context: TooltipItem<'line'>) => ` ${context.dataset.label}: ${(context.parsed.y as number).toFixed(spec.decimals)} ${spec.unit}`,
           },
         },
-      }
-
-    case 'bp':
-      return {
-        type: 'line',
-        data: {
-          labels: timeLabels,
-          datasets: [
-            {
-              label: 'Systolic',
-              data: generateBPData().systolic,
-              borderColor: '#e74c3c',
-              backgroundColor: 'rgba(231, 76, 60, 0.1)',
-              borderWidth: 2,
-              tension: 0.4,
-              fill: false,
-              pointRadius: 0,
-              pointHoverRadius: 4,
-            },
-            {
-              label: 'Diastolic',
-              data: generateBPData().diastolic,
-              borderColor: '#3498db',
-              backgroundColor: 'rgba(52, 152, 219, 0.1)',
-              borderWidth: 2,
-              tension: 0.4,
-              fill: false,
-              pointRadius: 0,
-              pointHoverRadius: 4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: context => `${context.dataset.label}: ${(context.parsed.y as number).toFixed(0)} mmHg` } },
-          },
-          scales: {
-            y: { beginAtZero: false, min: 60, max: 160, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: value => value + ' mmHg' } },
-            x: { display: false },
-          },
-        },
-      }
-
-    case 'rr':
-      return {
-        type: 'line',
-        data: {
-          labels: timeLabels,
-          datasets: [
-            {
-              label: 'Respiration Rate',
-              data: generateRRData(),
-              borderColor: '#9b59b6',
-              backgroundColor: 'rgba(155, 89, 182, 0.2)',
-              borderWidth: 2,
-              tension: 0.4,
-              fill: true,
-              pointRadius: 0,
-              pointHoverRadius: 4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: context => `${(context.parsed.y as number).toFixed(1)} breaths/min` } },
-          },
-          scales: {
-            y: { beginAtZero: false, min: 8, max: 30, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: value => value + ' br/min' } },
-            x: { display: false },
-          },
-        },
-      }
-
-    case 'temp':
-      return {
-        type: 'line',
-        data: {
-          labels: timeLabels,
-          datasets: [
-            {
-              label: 'Temperature',
-              data: generateTempData(),
-              borderColor: '#e67e22',
-              backgroundColor: 'rgba(230, 126, 34, 0.1)',
-              borderWidth: 2,
-              tension: 0.4,
-              fill: true,
-              pointRadius: 0,
-              pointHoverRadius: 4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: context => `${(context.parsed.y as number).toFixed(1)}°C` } },
-          },
-          scales: {
-            y: { beginAtZero: false, min: 35, max: 40, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: value => value + '°C' } },
-            x: { display: false },
-          },
-        },
-      }
-
-    case 'ecg':
-      return {
-        type: 'line',
-        data: {
-          labels: Array.from({ length: 100 }, (_, i) => i),
-          datasets: [
-            {
-              label: 'ECG',
-              data: generateECGData(),
-              borderColor: '#16a085',
-              backgroundColor: 'rgba(22, 160, 133, 0.1)',
-              borderWidth: 1.5,
-              tension: 0,
-              fill: false,
-              pointRadius: 0,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: { y: { display: false }, x: { display: false } },
-          animation: false,
-        },
-      }
-
-    case 'hr':
-    default:
-      return {
-        type: 'line',
-        data: {
-          labels: timeLabels,
-          datasets: [
-            {
-              label: 'Heart Rate (BPM)',
-              data: generateHRData(),
-              borderColor: '#27ae60',
-              backgroundColor: 'rgba(39, 174, 96, 0.1)',
-              borderWidth: 2,
-              tension: 0.4,
-              fill: true,
-              pointRadius: 0,
-              pointHoverRadius: 4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: context => `${(context.parsed.y as number).toFixed(0)} BPM` } },
-          },
-          scales: {
-            y: { beginAtZero: false, min: 50, max: 150, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: value => value + ' BPM' } },
-            x: { display: false },
-          },
-        },
-      }
+      },
+      scales: sparklineScales(t, spec, expanded),
+    },
   }
 }
 
-/** Fresh random data for the 2-second refresh (updateCharts() in the original). */
-export function refreshSparklineData(chartType: Exclude<SparklineKey, 'ecg'>): number[][] {
-  switch (chartType) {
-    case 'hr':
-      return [generateHRData()]
-    case 'spo2':
-      return [generateSpO2Data()]
-    case 'bp': {
-      const bp = generateBPData()
-      return [bp.systolic, bp.diastolic]
-    }
-    case 'rr':
-      return [generateRRData()]
-    case 'temp':
-      return [generateTempData()]
-  }
+/** Collapsed cards show a bare trace; expanded cards get recessive axes. */
+function sparklineScales(t: ChartTokens, spec: TraceSpec, expanded: boolean) {
+  const scales = axes(t, { yMin: spec.yMin, yMax: spec.yMax, showX: expanded })
+  return { x: { ...scales.x, display: expanded }, y: { ...scales.y, display: expanded } }
+}
+
+/** Fresh simulated traces for the 2-second refresh. */
+export function refreshSparklineData(key: Exclude<SparklineKey, 'ecg'>): number[][] {
+  return SPECS[key].data()
 }

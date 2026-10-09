@@ -12,6 +12,8 @@ export interface ChartTokens {
   axis: string
   line: string
   accent: string
+  /** Hue of the card the chart sits in (falls back to the brand teal). */
+  tint: string
   series: string[]
   ok: string
   warn: string
@@ -20,8 +22,9 @@ export interface ChartTokens {
   font: string
 }
 
-export function readChartTokens(): ChartTokens {
+export function readChartTokens(element?: Element): ChartTokens {
   const style = getComputedStyle(document.documentElement)
+  const local = element ? getComputedStyle(element) : style
   const v = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback
   return {
     ink: v('--ink', '#0f1d26'),
@@ -32,12 +35,13 @@ export function readChartTokens(): ChartTokens {
     axis: v('--chart-axis', '#c5cfd4'),
     line: v('--line-strong', 'rgba(16,42,56,0.16)'),
     accent: v('--accent', '#0b7480'),
+    tint: local.getPropertyValue('--tint').trim() || v('--accent', '#0b7480'),
     series: [v('--series-1', '#2a78d6'), v('--series-2', '#eb6834'), v('--series-3', '#1baf7a'), v('--series-4', '#eda100'), v('--series-5', '#e87ba4')],
     ok: v('--ok', '#15964f'),
     warn: v('--warn', '#d98a06'),
     serious: v('--serious', '#e0703f'),
     crit: v('--crit', '#d03b3b'),
-    font: '"Geist Variable", ui-sans-serif, system-ui, sans-serif',
+    font: '"Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif',
   }
 }
 
@@ -58,7 +62,12 @@ export function applyChartDefaults(t: ChartTokens) {
   d.font.size = 12
   d.color = t.ink3
   d.borderColor = t.grid
-  d.animation = { duration: 700, easing: 'easeOutQuart' }
+  // Set fields individually: Chart.js derives its animation option keys (type, fn, ...) from this
+  // object, so replacing it wholesale breaks colour interpolation and crashes destroy() mid-animation.
+  if (d.animation) {
+    d.animation.duration = 700
+    d.animation.easing = 'easeOutQuart'
+  }
   d.interaction.mode = 'index'
   d.interaction.intersect = false
 

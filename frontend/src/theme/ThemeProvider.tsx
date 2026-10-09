@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { applyResolvedTheme, readThemePreference, resolveTheme, writeThemePreference, type ThemePreference } from '../utils/theme'
 import { ThemeContext } from './themeContext'
 
@@ -17,7 +17,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const resolved = preference === 'system' ? (systemDark ? 'dark' : 'light') : preference
 
-  useEffect(() => {
+  // Layout effect: runs before any child's passive effect, so charts re-created for the
+  // new theme read the already-updated CSS tokens.
+  useLayoutEffect(() => {
     applyResolvedTheme(resolved)
   }, [resolved])
 

@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import type { TooltipItem } from 'chart.js'
+import { ArrowUpRight, ChartLineUp, CheckCircle, ClockCounterClockwise, Table, Target, UsersThree, type Icon } from '@phosphor-icons/react'
 import type { RecordsPayload } from '../../api/types'
 import { ChartCanvas, type AnyChart } from '../../components/charts/ChartCanvas'
+import { axes, withAlpha } from '../../components/charts/chartTheme'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { PageState } from '../../components/PageState'
+import { Badge } from '../../components/ui/Badge'
+import { ButtonLink } from '../../components/ui/Button'
+import { Card, CardBody, CardHeader } from '../../components/ui/Card'
+import { cn } from '../../components/ui/cn'
+import { Meter } from '../../components/ui/Feedback'
+import { Reveal } from '../../components/ui/Reveal'
+import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { useApi } from '../../hooks/useApi'
-import { useBodyClass } from '../../hooks/useBodyClass'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-import { statusBadgeClass } from '../../utils/riskStyles'
+import { outcomeTone, type Tint } from '../../utils/tones'
 
 // Chart data below is the same static demo data the original page used.
-const chartColors = {
-  primary: '#1f7a8c',
-  success: '#35b57b',
-  warning: '#f2ad59',
-  danger: '#e5727f',
-  info: '#2fa5c1',
-  light: '#f5f7fb',
-}
-
 type TrendFilter = 'week' | 'month' | 'yearly'
 
 const trendDataSets: Record<TrendFilter, { labels: string[]; data: number[] }> = {
@@ -29,24 +29,28 @@ const trendDataSets: Record<TrendFilter, { labels: string[]; data: number[] }> =
   },
 }
 
-const FILTERS: { key: TrendFilter; label: string }[] = [
-  { key: 'week', label: 'This Week' },
-  { key: 'month', label: 'This month' },
-  { key: 'yearly', label: 'Yearly' },
+const FILTERS: { value: TrendFilter; label: string }[] = [
+  { value: 'week', label: 'This week' },
+  { value: 'month', label: 'This month' },
+  { value: 'yearly', label: 'Yearly' },
 ]
+
+const CONDITIONS = [
+  { label: 'Cardiac arrest', value: 25 },
+  { label: 'Stroke', value: 20 },
+  { label: 'Trauma', value: 18 },
+  { label: 'Respiratory', value: 22 },
+  { label: 'Other', value: 15 },
+]
+const SERIES_SWATCH = ['bg-[var(--series-1)]', 'bg-[var(--series-2)]', 'bg-[var(--series-3)]', 'bg-[var(--series-4)]', 'bg-[var(--series-5)]']
 
 export function PatientRecordsPage() {
   useDocumentTitle('Patient Records - AI Ambulance System')
-  useBodyClass('patient-records')
   const page = useApi<RecordsPayload>('/records')
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h4 className="mb-0">Patient Records &amp; Analytics</h4>
-        </div>
-      </div>
+      <PageHeader title="Patient records & analytics" description="Historical cases, prediction accuracy and response times across the service." />
       {page.data ? <RecordsContent data={page.data} /> : <PageState loading={page.loading} error={page.error} onRetry={page.reload} />}
     </>
   )
@@ -56,269 +60,247 @@ function RecordsContent({ data }: { data: RecordsPayload }) {
   const [filter, setFilter] = useState<TrendFilter>('week')
   const trendChart = useRef<AnyChart | null>(null)
 
-  // Filter buttons update the existing trend chart in place (updateSuccessTrendChart()).
+  // The filter updates the existing chart in place, so the line morphs between periods.
   useEffect(() => {
     const chart = trendChart.current
     if (!chart) return
-    const dataset = trendDataSets[filter] ?? trendDataSets.yearly
+    const dataset = trendDataSets[filter]
     chart.data.labels = dataset.labels
     chart.data.datasets[0].data = dataset.data
     chart.update('active')
   }, [filter])
 
-  const metrics = [
-    { color: 'blue', icon: 'bi-people-fill', value: `${data.total_patients}`, label: 'Total Patients', sub: 'Historical records' },
-    { color: 'green', icon: 'bi-check-circle-fill', value: `${data.prediction_success}%`, label: 'Prediction Success Rate', sub: 'AI accuracy' },
-    { color: 'orange', icon: 'bi-graph-up', value: `${data.avg_accuracy}%`, label: 'Average Accuracy', sub: 'Diagnosis precision' },
-    { color: 'red', icon: 'bi-clock-history', value: data.avg_response_time, label: 'Avg Response Time', sub: 'Minutes' },
+  const metrics: { icon: Icon; value: string; label: string; sub: string; tint: Tint }[] = [
+    { icon: UsersThree, value: `${data.total_patients}`, label: 'Total patients', sub: 'Historical records', tint: 'sky' },
+    { icon: CheckCircle, value: `${data.prediction_success}%`, label: 'Prediction success rate', sub: 'AI accuracy', tint: 'emerald' },
+    { icon: Target, value: `${data.avg_accuracy}%`, label: 'Average accuracy', sub: 'Diagnosis precision', tint: 'violet' },
+    { icon: ClockCounterClockwise, value: `${data.avg_response_time}`, label: 'Avg response time', sub: 'Minutes', tint: 'amber' },
   ]
 
   return (
-    <>
+    <div className="flex flex-col gap-6 lg:gap-8">
       {/* Metrics */}
-      <div className="row g-3 mb-4 top-metrics" role="list">
-        {metrics.map(metric => (
-          <div className="col-3 metric-col" role="listitem" key={metric.label}>
-            <div className={`stat-card stat-card-${metric.color}`}>
-              <div className="stat-icon">
-                <i className={`bi ${metric.icon}`}></i>
+      <section aria-label="Summary metrics" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {metrics.map((metric, index) => (
+          <Reveal key={metric.label} delay={index * 0.05} className="min-w-0">
+            <article
+              data-tint={metric.tint}
+              className="card-tinted relative flex h-full min-w-0 flex-col gap-3 overflow-hidden rounded-[var(--radius-card)] border p-4 shadow-card transition-shadow duration-300 sm:p-5"
+            >
+              <span aria-hidden className="tint-bar absolute inset-x-0 top-0 h-[3px]" />
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-[13px] font-semibold text-ink-2">{metric.label}</span>
+                <span className="tint-chip grid size-8 shrink-0 place-items-center rounded-[10px]">
+                  <metric.icon size={17} weight="duotone" aria-hidden />
+                </span>
               </div>
-              <div className="stat-content">
-                <h3>{metric.value}</h3>
-                <p>{metric.label}</p>
-                <small>{metric.sub}</small>
-              </div>
-            </div>
-          </div>
+              <p className="text-[clamp(1.6rem,1.3rem+1vw,2.1rem)] leading-none font-semibold tracking-tight text-ink">{metric.value}</p>
+              <p className="mt-auto truncate text-xs text-ink-3">{metric.sub}</p>
+            </article>
+          </Reveal>
         ))}
-      </div>
+      </section>
 
-      {/* Charts row 1 */}
-      <div className="row g-3 mb-4">
-        <div className="col-lg-6">
-          <div className="chart-card">
-            <div className="chart-card-header-with-filters">
-              <h6 className="mb-0">Prediction Success Trend</h6>
-              <div className="chart-filters">
-                {FILTERS.map(item => (
-                  <button
-                    type="button"
-                    key={item.key}
-                    className={`filter-btn${filter === item.key ? ' active' : ''}`}
-                    data-filter={item.key}
-                    onClick={() => setFilter(item.key)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="chart-container">
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <Card tint="teal">
+          <CardHeader icon={ChartLineUp} title="Prediction success trend" aside={<SegmentedControl label="Trend period" size="sm" value={filter} onChange={setFilter} options={FILTERS} />} />
+          <CardBody>
+            <div className="relative h-64 sm:h-72">
               <ChartCanvas
                 id="successTrendChart"
-                height={280}
+                label="Prediction success rate over time"
                 chartRef={trendChart}
-                createConfig={ctx => {
-                  const dataset = trendDataSets[filter] ?? trendDataSets.yearly
-                  const gradient = ctx.createLinearGradient(0, 0, 0, 200)
-                  gradient.addColorStop(0, 'rgba(31, 122, 140, 0.3)')
-                  gradient.addColorStop(1, 'rgba(31, 122, 140, 0.02)')
+                createConfig={t => {
+                  const dataset = trendDataSets[filter]
                   return {
                     type: 'line',
                     data: {
                       labels: dataset.labels,
                       datasets: [
                         {
-                          label: 'Success Rate (%)',
+                          label: 'Success rate',
                           data: dataset.data,
-                          borderColor: chartColors.primary,
-                          backgroundColor: gradient,
-                          tension: 0.5,
+                          borderColor: t.tint,
+                          backgroundColor: withAlpha(t.tint, 0.1),
                           fill: true,
-                          pointRadius: 5,
-                          pointBackgroundColor: chartColors.primary,
-                          pointBorderColor: '#fff',
+                          tension: 0.4,
+                          pointRadius: 4,
+                          pointBackgroundColor: t.tint,
+                          pointBorderColor: t.surface,
                           pointBorderWidth: 2,
-                          borderWidth: 3,
                         },
                       ],
                     },
                     options: {
-                      responsive: true,
-                      maintainAspectRatio: false,
                       animation: { duration: 600, easing: 'easeInOutQuart' },
-                      plugins: { legend: { display: false } },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          max: 100,
-                          ticks: { color: 'rgba(116, 131, 148, 0.7)' },
-                          grid: { color: 'rgba(220, 231, 241, 0.5)' },
-                          border: { display: false },
-                        },
-                        x: {
-                          ticks: { color: 'rgba(116, 131, 148, 0.7)' },
-                          grid: { display: false },
-                          border: { display: false },
-                        },
-                      },
+                      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c: TooltipItem<'line'>) => ` Success rate: ${c.raw}%` } } },
+                      scales: axes(t, { beginAtZero: true, yMax: 100, yTick: value => `${value}%` }),
                     },
                   }
                 }}
               />
             </div>
-          </div>
-        </div>
-        <div className="col-lg-6">
-          <div className="chart-card">
-            <div className="chart-card-header">
-              <h6 className="mb-0">Accuracy Distribution</h6>
-            </div>
-            <div className="chart-container">
+          </CardBody>
+        </Card>
+
+        <Card delay={0.05} tint="violet">
+          <CardHeader title="Accuracy distribution" description="Number of patients per prediction-accuracy band." />
+          <CardBody>
+            <div className="relative h-64 sm:h-72">
               <ChartCanvas
                 id="accuracyDistributionChart"
-                height={280}
-                createConfig={() => ({
+                label="Accuracy distribution bar chart"
+                createConfig={t => ({
                   type: 'bar',
                   data: {
                     labels: ['60-70%', '70-80%', '80-90%', '90-95%', '95-100%'],
-                    datasets: [
-                      {
-                        label: 'Number of Patients',
-                        data: [5, 12, 28, 35, 20],
-                        backgroundColor: [
-                          'rgba(229, 114, 127, 0.8)',
-                          'rgba(242, 173, 89, 0.8)',
-                          'rgba(47, 165, 193, 0.8)',
-                          'rgba(53, 181, 123, 0.8)',
-                          'rgba(31, 122, 140, 0.8)',
-                        ],
-                        borderRadius: 6,
-                      },
-                    ],
+                    datasets: [{ label: 'Patients', data: [5, 12, 28, 35, 20], backgroundColor: t.tint, maxBarThickness: 24, borderRadius: 4, borderSkipped: 'start' }],
                   },
-                  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+                  options: { plugins: { legend: { display: false } }, scales: axes(t, { beginAtZero: true }) },
                 })}
               />
             </div>
-          </div>
-        </div>
+          </CardBody>
+        </Card>
       </div>
 
-      {/* Charts row 2 */}
-      <div className="row g-3 mb-4">
-        <div className="col-lg-6">
-          <div className="chart-card">
-            <div className="chart-card-header">
-              <h6 className="mb-0">Condition Detection Rate</h6>
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <Card tint="rose">
+          <CardHeader title="Condition detection rate" description="Share of detected conditions." />
+          <CardBody>
+            <div className="grid items-center gap-6 sm:grid-cols-[minmax(0,12rem)_1fr]">
+              <div className="relative mx-auto aspect-square w-full max-w-[12rem]">
+                <ChartCanvas
+                  id="conditionDetectionChart"
+                  label="Condition detection doughnut chart"
+                  createConfig={t => ({
+                    type: 'doughnut',
+                    data: { labels: CONDITIONS.map(item => item.label), datasets: [{ data: CONDITIONS.map(item => item.value), backgroundColor: t.series, spacing: 2 }] },
+                    options: { cutout: '68%', interaction: { mode: 'nearest', intersect: true }, plugins: { legend: { display: false } } },
+                  })}
+                />
+              </div>
+              <ul className="flex flex-col gap-2.5">
+                {CONDITIONS.map((item, index) => (
+                  <li key={item.label} className="flex items-center gap-3 text-sm">
+                    <span aria-hidden className={cn('size-2.5 shrink-0 rounded-full', SERIES_SWATCH[index])} />
+                    <span className="min-w-0 flex-1 text-ink-2">{item.label}</span>
+                    <span className="tabular font-semibold text-ink">{item.value}%</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="chart-container">
-              <ChartCanvas
-                id="conditionDetectionChart"
-                height={250}
-                createConfig={() => ({
-                  type: 'doughnut',
-                  data: {
-                    labels: ['Cardiac Arrest', 'Stroke', 'Trauma', 'Respiratory', 'Other'],
-                    datasets: [
-                      {
-                        data: [25, 20, 18, 22, 15],
-                        backgroundColor: [chartColors.danger, chartColors.warning, chartColors.info, chartColors.success, chartColors.primary],
-                        borderColor: '#fff',
-                        borderWidth: 2,
-                      },
-                    ],
-                  },
-                  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
-                })}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="col-lg-6">
-          <div className="chart-card">
-            <div className="chart-card-header">
-              <h6 className="mb-0">Response Time Distribution</h6>
-            </div>
-            <div className="chart-container">
+          </CardBody>
+        </Card>
+
+        <Card delay={0.05} tint="amber">
+          <CardHeader title="Response time distribution" description="Number of cases per response-time band." />
+          <CardBody>
+            <div className="relative h-64">
               <ChartCanvas
                 id="responseTimeChart"
-                height={250}
-                createConfig={() => ({
+                label="Response time distribution bar chart"
+                createConfig={t => ({
                   type: 'bar',
                   data: {
                     labels: ['0-5 min', '5-10 min', '10-15 min', '15-20 min', '20+ min'],
-                    datasets: [{ label: 'Frequency', data: [45, 32, 15, 6, 2], backgroundColor: chartColors.info, borderRadius: 6 }],
+                    datasets: [{ label: 'Cases', data: [45, 32, 15, 6, 2], backgroundColor: t.tint, maxBarThickness: 24, borderRadius: 4, borderSkipped: 'start' }],
                   },
-                  options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+                  options: {
+                    indexAxis: 'y',
+                    interaction: { mode: 'index', axis: 'y', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                      x: { beginAtZero: true, grid: { color: t.grid }, border: { display: false }, ticks: { color: t.ink3 } },
+                      y: { grid: { display: false }, border: { color: t.axis }, ticks: { color: t.ink3 } },
+                    },
+                  },
                 })}
               />
             </div>
-          </div>
-        </div>
+          </CardBody>
+        </Card>
       </div>
 
-      {/* Records table */}
-      <div className="card mb-4">
-        <div className="card-header bg-primary text-white">
-          <i className="bi bi-table"></i> Historical Patient Records
-        </div>
-        <div className="card-body">
-          <div className="table-responsive">
-            <table className="table table-hover">
-              <thead className="table-light">
-                <tr>
-                  <th>Patient ID</th>
-                  <th>Name</th>
-                  <th>Date</th>
-                  <th>Condition Detected</th>
-                  <th>Prediction Accuracy</th>
-                  <th>Response Time (min)</th>
-                  <th>Status</th>
-                  <th>Action</th>
+      {/* Records */}
+      <Card tint="indigo">
+        <CardHeader icon={Table} title="Historical patient records" description={`${data.patient_records.length} cases, newest first.`} />
+        <CardBody className="px-0 pb-2 sm:px-0 sm:pb-2">
+          {/* Table from sm up */}
+          <div className="scrollbar-thin relative hidden overflow-x-auto sm:block">
+            <table className="w-full min-w-[880px] text-left text-sm">
+              <thead>
+                <tr className="border-y border-line bg-surface-2/50 text-xs text-ink-3">
+                  {['Patient ID', 'Name', 'Date', 'Condition', 'Prediction accuracy', 'Response', 'Status', ''].map(heading => (
+                    <th key={heading} scope="col" className="px-4 py-2.5 font-medium first:pl-6 last:pr-6">
+                      {heading || <span className="sr-only">Action</span>}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-line">
                 {data.patient_records.map(record => (
-                  <tr key={record.patient_id}>
-                    <td>
-                      <code>{record.patient_id}</code>
+                  <tr key={record.patient_id} className="transition-colors hover:bg-surface-2/50">
+                    <td className="px-4 py-3 pl-6 font-mono text-[13px] text-ink-2">{record.patient_id}</td>
+                    <td className="px-4 py-3 font-medium text-ink">{record.name}</td>
+                    <td className="tabular px-4 py-3 text-ink-2">{record.date}</td>
+                    <td className="px-4 py-3">
+                      <Badge tone="neutral">{record.condition}</Badge>
                     </td>
-                    <td>{record.name}</td>
-                    <td>{record.date}</td>
-                    <td>
-                      <span className="badge bg-info">{record.condition}</span>
-                    </td>
-                    <td>
-                      <div className="accuracy-progress">
-                        <div
-                          className="accuracy-bar"
-                          role="progressbar"
-                          aria-valuenow={record.accuracy}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          style={{ width: `${record.accuracy}%` }}
-                        >
-                          <span className="accuracy-text">{record.accuracy}%</span>
-                        </div>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Meter value={record.accuracy} label={`Prediction accuracy ${record.accuracy}%`} className="w-24" />
+                        <span className="tabular text-[13px] font-medium text-ink">{record.accuracy}%</span>
                       </div>
                     </td>
-                    <td>{record.response_time}</td>
-                    <td>
-                      <span className={`badge ${statusBadgeClass(record.status)}`}>{record.status}</span>
+                    <td className="tabular px-4 py-3 text-ink-2">{record.response_time} min</td>
+                    <td className="px-4 py-3">
+                      <Badge tone={outcomeTone(record.status)} status>
+                        {record.status}
+                      </Badge>
                     </td>
-                    <td>
-                      <Link className="btn btn-sm btn-outline-primary" to={`/records/${encodeURIComponent(record.patient_id)}/history`}>
-                        <i className="bi bi-box-arrow-up-right"></i> Open Full History
-                      </Link>
+                    <td className="px-4 py-3 pr-6 text-right">
+                      <ButtonLink to={`/records/${encodeURIComponent(record.patient_id)}/history`} variant="ghost" iconRight={ArrowUpRight} className="min-h-9 px-3">
+                        Full history
+                      </ButtonLink>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
-    </>
+
+          {/* Stacked cards on phones */}
+          <ul className="divide-y divide-line border-t border-line sm:hidden">
+            {data.patient_records.map(record => (
+              <li key={record.patient_id} className="flex flex-col gap-3 px-5 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">{record.name}</p>
+                    <p className="font-mono text-xs text-ink-3">
+                      {record.patient_id} · {record.date}
+                    </p>
+                  </div>
+                  <Badge tone={outcomeTone(record.status)} status>
+                    {record.status}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink-2">
+                  <Badge tone="neutral">{record.condition}</Badge>
+                  <span className="tabular">{record.response_time} min response</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Meter value={record.accuracy} label={`Prediction accuracy ${record.accuracy}%`} className="flex-1" />
+                  <span className="tabular text-[13px] font-medium text-ink">{record.accuracy}%</span>
+                </div>
+                <ButtonLink to={`/records/${encodeURIComponent(record.patient_id)}/history`} variant="secondary" iconRight={ArrowUpRight} className="w-full">
+                  Open full history
+                </ButtonLink>
+              </li>
+            ))}
+          </ul>
+        </CardBody>
+      </Card>
+    </div>
   )
 }

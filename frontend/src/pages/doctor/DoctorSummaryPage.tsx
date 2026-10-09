@@ -1,35 +1,57 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import {
+  Brain,
+  Camera,
+  CheckSquare,
+  ClipboardText,
+  Cpu,
+  Drop,
+  FileText,
+  FirstAidKit,
+  Heartbeat,
+  Hospital,
+  IdentificationCard,
+  Info,
+  Lightbulb,
+  Printer,
+  Pulse,
+  Thermometer,
+  Waveform,
+  Wind,
+  type Icon,
+} from '@phosphor-icons/react'
 import type { DoctorSummaryPayload, LiveSensorKey, LiveVitalsResponse } from '../../api/types'
-import { BulletRows } from '../../components/BulletRows'
+import { BulletList } from '../../components/BulletList'
 import { HospitalPreparationCards } from '../../components/diagnosis/HospitalPreparationCards'
+import { VerificationTestList } from '../../components/diagnosis/VerificationTestList'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { LiveClinicalSummaryCard } from '../../components/live/LiveClinicalSummary'
-import { LiveText } from '../../components/live/LiveText'
+import { LiveValue } from '../../components/live/LiveValue'
 import { PageState } from '../../components/PageState'
+import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
+import { Card, CardBody, CardHeader } from '../../components/ui/Card'
+import { cn } from '../../components/ui/cn'
+import { Callout } from '../../components/ui/Feedback'
 import { useAnonymousMode } from '../../hooks/useAnonymousMode'
 import { useApi } from '../../hooks/useApi'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useLiveVitals } from '../../hooks/useLiveVitals'
-import { doctorCameraColor, doctorOverallColor, safeDxColor } from '../../utils/riskStyles'
+import { splitReading } from '../../utils/format'
+import { cameraRiskTone, diagnosisTone, plainDashes, TONE_BORDER_L, TONE_SOFT, type Tint } from '../../utils/tones'
 
-const VITALS: { key: LiveSensorKey; className: string; label: string }[] = [
-  { key: 'heart_rate', className: 'text-danger', label: 'Heart Rate (BPM)' },
-  { key: 'spo2', className: 'text-primary', label: 'SpO₂ (%)' },
-  { key: 'blood_pressure', className: 'text-danger', label: 'Blood Pressure' },
-  { key: 'temp', className: 'text-success', label: 'Temperature (°F)' },
-  { key: 'resp_rate', className: 'text-info', label: 'Respiration Rate' },
-  { key: 'ecg_status', className: 'text-purple ecg-metric-text', label: 'ECG Status' },
+// Same colour per vital as the dashboard.
+const VITALS: { key: LiveSensorKey; icon: Icon; label: string; tint: Tint }[] = [
+  { key: 'heart_rate', icon: Heartbeat, label: 'Heart rate', tint: 'rose' },
+  { key: 'spo2', icon: Drop, label: 'SpO₂', tint: 'sky' },
+  { key: 'blood_pressure', icon: Pulse, label: 'Blood pressure', tint: 'violet' },
+  { key: 'temp', icon: Thermometer, label: 'Temperature', tint: 'amber' },
+  { key: 'resp_rate', icon: Wind, label: 'Respiration rate', tint: 'emerald' },
+  { key: 'ecg_status', icon: Waveform, label: 'ECG status', tint: 'teal' },
 ]
 
 function formatReportTime(date: Date): string {
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-  })
+  return date.toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
 }
 
 export function DoctorSummaryPage() {
@@ -40,24 +62,15 @@ export function DoctorSummaryPage() {
 
   return (
     <>
-      {/* Page Header */}
-      <div className="page-header">
-        <div>
-          <h4 className="mb-0">
-            <i className="bi bi-stethoscope"></i> Doctor's Pre-Arrival Summary - Final Report
-          </h4>
-        </div>
-      </div>
-
-      {/* Print Button */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <button type="button" className="btn btn-primary" onClick={() => window.print()}>
-            <i className="bi bi-printer-fill"></i> Print Report
-          </button>
-        </div>
-      </div>
-
+      <PageHeader
+        title="Doctor's pre-arrival summary"
+        description="Final report for the receiving clinician. Vitals and the clinical summary stay live until you print."
+        actions={
+          <Button variant="primary" icon={Printer} onClick={() => window.print()}>
+            Print report
+          </Button>
+        }
+      />
       {page.data ? <DoctorSummaryContent data={page.data} live={live} /> : <PageState loading={page.loading} error={page.error} onRetry={page.reload} />}
     </>
   )
@@ -69,247 +82,198 @@ function DoctorSummaryContent({ data, live }: { data: DoctorSummaryPayload; live
   const sensors = live.data?.sensors ?? data.sensors
   const ai = live.data?.ai ?? data.ai
   const initialDx = camera.diagnosis
-  const liveDx = live.data?.diagnosis
+  const liveDx = live.data?.diagnosis ?? initialDx
+  const dxTone = diagnosisTone(liveDx?.severity_color)
 
   return (
-    <>
-      {/* Patient Information Panel */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card border-info">
-            <div className="card-header bg-info text-white">
-              <i className="bi bi-person-vcard-fill"></i> Patient Information
+    <div className="flex flex-col gap-6 lg:gap-8">
+      {/* Patient information */}
+      <Card tint="indigo">
+        <CardHeader icon={IdentificationCard} title="Patient information" />
+        <CardBody>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+            <Field label="Patient ID" value={patient ? patient.id : 'N/A'} mono />
+            <Field label="Name" value={patient ? patient.name : 'N/A'} />
+            <Field label="Age" value={`${patient ? patient.age : 'N/A'} years`} />
+            <div className="min-w-0">
+              <dt className="text-xs text-ink-3">Report time</dt>
+              <dd id="reportTime" className="tabular mt-1 text-sm font-medium text-ink">
+                {reportTime}
+              </dd>
             </div>
-            <div className="card-body">
-              <div className="row">
-                <div className="col-md-3">
-                  <strong>Patient ID:</strong>
-                  <p>{patient ? patient.id : 'N/A'}</p>
+          </dl>
+        </CardBody>
+      </Card>
+
+      {/* Current vital metrics */}
+      <Card tint="rose">
+        <CardHeader icon={Heartbeat} title="Current vital metrics" />
+        <CardBody>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {VITALS.map(vital => {
+              const reading = splitReading(sensors[vital.key])
+              return (
+                <div key={vital.key} data-tint={vital.tint} className="card-tinted flex min-w-0 flex-col gap-2 rounded-[12px] border p-4">
+                  <span className="flex items-center gap-2 text-xs font-semibold text-ink-2">
+                    <span className="tint-chip grid size-6 place-items-center rounded-[7px]">
+                      <vital.icon size={14} weight="bold" aria-hidden />
+                    </span>
+                    {vital.label}
+                  </span>
+                  <p className="flex flex-wrap items-baseline gap-x-1.5">
+                    <LiveValue
+                      value={reading.value}
+                      tween={reading.numeric}
+                      className={cn('rounded-md font-semibold tracking-tight text-ink', reading.numeric ? 'text-2xl' : 'text-[15px] leading-snug')}
+                    />
+                    {reading.unit && <span className="text-xs text-ink-3">{reading.unit}</span>}
+                  </p>
                 </div>
-                <div className="col-md-3">
-                  <strong>Name:</strong>
-                  <p>{patient ? patient.name : 'N/A'}</p>
-                </div>
-                <div className="col-md-3">
-                  <strong>Age:</strong>
-                  <p>{patient ? patient.age : 'N/A'} years</p>
-                </div>
-                <div className="col-md-3">
-                  <strong>Report Time:</strong>
-                  <p id="reportTime">{reportTime}</p>
-                </div>
-              </div>
-            </div>
+              )
+            })}
           </div>
-        </div>
-      </div>
+        </CardBody>
+      </Card>
 
-      {/* Vital Metrics Panel */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card border-warning">
-            <div className="card-header bg-warning text-dark">
-              <i className="bi bi-heart-pulse-fill"></i> Current Vital Metrics
-            </div>
-            <div className="card-body">
-              <div className="row text-center doctor-vitals-row">
-                {VITALS.map(vital => (
-                  <div className="col-xl-2 col-lg-4 col-md-4 col-sm-6" key={vital.key}>
-                    <div className="metric-box h-100">
-                      <LiveText as="h5" className={vital.className} value={sensors[vital.key]} />
-                      <small>{vital.label}</small>
-                    </div>
-                  </div>
-                ))}
+      {/* Visual analysis & risk assessment */}
+      <Card tint="violet">
+        <CardHeader icon={Camera} title="Visual analysis & risk assessment" />
+        <CardBody className="flex flex-col gap-5">
+          <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              { title: 'Bleeding', value: camera.bleeding_risk },
+              { title: 'Movement', value: camera.movement_risk },
+              { title: 'Posture', value: camera.posture_risk },
+              { title: 'Overall risk', value: camera.overall_risk },
+            ].map(item => (
+              <div key={item.title} className="min-w-0 rounded-[var(--radius-control)] border border-line p-4">
+                <dt className="text-xs text-ink-3">{item.title}</dt>
+                <dd className="mt-2">
+                  <Badge tone={cameraRiskTone(item.value)} status size="md">
+                    {item.value}
+                  </Badge>
+                </dd>
               </div>
-            </div>
+            ))}
+          </dl>
+          <div>
+            <h3 className="mb-2.5 text-sm font-semibold text-ink">Camera AI analysis</h3>
+            <BulletList items={camera.summary} />
           </div>
-        </div>
-      </div>
+        </CardBody>
+      </Card>
 
-      {/* Risk Assessment Panel */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card border-danger">
-            <div className="card-header bg-danger text-white">
-              <i className="bi bi-exclamation-triangle-fill"></i> Visual Analysis &amp; Risk Assessment
-            </div>
-            <div className="card-body">
-              <div className="row mb-3">
-                {[
-                  { title: 'Bleeding Assessment', value: camera.bleeding_risk, color: doctorCameraColor(camera.bleeding_risk) },
-                  { title: 'Movement Analysis', value: camera.movement_risk, color: doctorCameraColor(camera.movement_risk) },
-                  { title: 'Posture Assessment', value: camera.posture_risk, color: doctorCameraColor(camera.posture_risk) },
-                  { title: 'Overall Risk', value: camera.overall_risk, color: doctorOverallColor(camera.overall_risk) },
-                ].map(item => (
-                  <div className="col-md-3" key={item.title}>
-                    <div className="risk-card">
-                      <h6>{item.title}</h6>
-                      <span className={`badge bg-${item.color} p-2 badge-lg`}>{item.value}</span>
-                    </div>
-                  </div>
-                ))}
+      {/* AI clinical analysis & recommendations */}
+      <Card tint="emerald">
+        <CardHeader icon={Brain} title="AI clinical analysis & recommendations" />
+        <CardBody className="flex flex-col gap-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="min-w-0">
+              <SectionTitle icon={Lightbulb}>External summary</SectionTitle>
+              <div id="liveExternalSummary">
+                {ai.external_summary?.length ? <BulletList items={ai.external_summary} /> : <p className="text-sm text-ink-3">External summary is being generated...</p>}
               </div>
-
-              <hr />
-              <h6 className="mb-3">Camera AI Analysis:</h6>
-              <div className="analysis-text">
-                <BulletRows items={camera.summary} />
+            </section>
+            <section className="min-w-0">
+              <SectionTitle icon={Cpu}>Internal summary</SectionTitle>
+              <div id="liveInternalSummary">
+                {ai.internal_summary?.length ? <BulletList items={ai.internal_summary} /> : <p className="text-sm text-ink-3">Internal summary is being generated...</p>}
               </div>
-            </div>
+            </section>
           </div>
-        </div>
-      </div>
-
-      {/* AI Clinical Analysis & Recommendations */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card border-success">
-            <div className="card-header bg-success text-white">
-              <i className="bi bi-brain-fill"></i> AI Clinical Analysis &amp; Recommendations
+          <section className="rounded-[var(--radius-control)] bg-accent-soft/60 p-4 sm:p-5">
+            <SectionTitle icon={CheckSquare}>Recommended actions</SectionTitle>
+            <div id="liveRecommendations">
+              {ai.recommendations?.length ? <BulletList items={ai.recommendations} /> : <p className="text-sm text-ink-3">No specific recommendations at this time.</p>}
             </div>
-            <div className="card-body">
-              <div className="row">
-                <div className="col-md-6 mb-3">
-                  <h6 className="text-info mb-3">
-                    <i className="bi bi-lightbulb-fill"></i> External Summary
-                  </h6>
-                  <div className="analysis-box" id="liveExternalSummary">
-                    {ai.external_summary?.length ? <BulletRows items={ai.external_summary} /> : <p className="text-muted mb-0">External summary is being generated...</p>}
-                  </div>
+          </section>
+        </CardBody>
+      </Card>
+
+      <LiveClinicalSummaryCard title="Live clinical summary & SBAR handoff" live={live.data} error={live.error} lastUpdated={live.lastUpdated} showSbar />
+
+      {/* Final summary & conclusion */}
+      <Card tint="sky">
+        <CardHeader icon={FileText} title="Final summary & conclusion" />
+        <CardBody className="flex flex-col gap-6">
+          <section className="rounded-[var(--radius-control)] border border-line p-4 sm:p-5">
+            <h3 className="text-sm font-semibold text-ink">Current patient state</h3>
+            <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
+              Based on comprehensive vital metric analysis and AI-powered computer vision assessment, the patient presents with{' '}
+              <strong className="font-semibold text-ink">{camera ? camera.overall_risk : 'Pending'} risk</strong> classification.
+            </p>
+            <h4 className="mt-4 mb-2.5 text-sm font-semibold text-ink">Key findings</h4>
+            <KeyFindings data={data} live={live.data} />
+          </section>
+
+          {initialDx && liveDx ? (
+            <>
+              <section className={cn('rounded-[var(--radius-control)] border-l-4 p-4 sm:p-5', TONE_SOFT[dxTone], TONE_BORDER_L[dxTone])}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">Probable condition</span>
+                  <Badge tone={dxTone} status>
+                    {liveDx.severity}
+                  </Badge>
                 </div>
-                <div className="col-md-6 mb-3">
-                  <h6 className="text-primary mb-3">
-                    <i className="bi bi-cpu-fill"></i> Internal Summary
-                  </h6>
-                  <div className="analysis-box" id="liveInternalSummary">
-                    {ai.internal_summary?.length ? <BulletRows items={ai.internal_summary} /> : <p className="text-muted mb-0">Internal summary is being generated...</p>}
-                  </div>
-                </div>
-              </div>
+                <LiveValue as="h3" tween={false} value={plainDashes(liveDx.condition)} className="mt-2 rounded-md text-lg leading-snug font-semibold text-ink" />
+                <LiveValue as="p" tween={false} value={plainDashes(liveDx.description)} className="mt-2 rounded-md text-sm leading-relaxed text-ink-2" />
+                <h4 className="mt-4 mb-2 text-sm font-semibold text-ink">Probable causes</h4>
+                <BulletList items={initialDx.probable_causes} dense />
+              </section>
 
-              <div className="row">
-                <div className="col-12 mb-3">
-                  <h6 className="text-success mb-3">
-                    <i className="bi bi-check-circle-fill"></i> Recommended Actions
-                  </h6>
-                  <div className="analysis-box" id="liveRecommendations">
-                    {ai.recommendations?.length ? <BulletRows items={ai.recommendations} /> : <p className="text-muted mb-0">No specific recommendations at this time.</p>}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+              <section>
+                <SectionTitle icon={FirstAidKit}>Recommended verification tests at hospital</SectionTitle>
+                <VerificationTestList tests={initialDx.verification_tests ?? []} tone={diagnosisTone(initialDx.severity_color)} />
+              </section>
 
-      <LiveClinicalSummaryCard
-        title="Live Clinical Summary & SBAR Handoff"
-        live={live.data}
-        error={live.error}
-        lastUpdated={live.lastUpdated}
-        showSbar
-      />
+              <section>
+                <SectionTitle icon={Hospital}>Hospital preparation checklist</SectionTitle>
+                <HospitalPreparationCards items={initialDx.hospital_preparation} compact />
+              </section>
+            </>
+          ) : (
+            <section>
+              <SectionTitle icon={ClipboardText}>Required hospital actions</SectionTitle>
+              <BulletList
+                items={[
+                  'Prepare emergency department with appropriate medical team',
+                  'Alert relevant specialist departments based on risk assessment',
+                  'Ensure ICU availability if high-risk classification',
+                  'Prepare diagnostic equipment (ECG, imaging, laboratory)',
+                  'Have emergency medications and resuscitation equipment ready',
+                ]}
+              />
+            </section>
+          )}
 
-      {/* Final Diagnosis & Conclusion */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card border-dark">
-            <div className="card-header bg-dark text-white">
-              <i className="bi bi-file-text-fill"></i> Final Summary &amp; Conclusion
-            </div>
-            <div className="card-body">
-              <h6 className="mb-3">Current Patient State:</h6>
-              <div className="conclusion-box">
-                <p>
-                  Based on comprehensive vital metric analysis and AI-powered computer vision assessment, the patient presents with{' '}
-                  <strong>{camera ? camera.overall_risk : 'Pending'} Risk</strong> classification.
-                </p>
-                <p>
-                  <strong>Key Findings:</strong>
-                </p>
-                <KeyFindings data={data} live={live.data} />
-              </div>
-
-              {initialDx ? (
-                <>
-                  {/* Probable Condition (condition / severity / description / colour refresh live, as before) */}
-                  <div className={`alert alert-${safeDxColor((liveDx ?? initialDx).severity_color)} mt-4`} role="alert">
-                    <h6 className="alert-heading fw-bold mb-1">
-                      <i className="bi bi-search-heart"></i> Probable Condition: <LiveText value={(liveDx ?? initialDx).condition} />{' '}
-                      <LiveText className={`badge bg-${safeDxColor((liveDx ?? initialDx).severity_color)} ms-2`} value={(liveDx ?? initialDx).severity} />
-                    </h6>
-                    <LiveText as="p" className="mb-2" value={(liveDx ?? initialDx).description} />
-                    <hr />
-                    <strong>Probable Causes:</strong>
-                    <div className="mb-0 mt-1">
-                      {(initialDx.probable_causes ?? []).map(cause => (
-                        <div key={cause}>{cause}</div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Verification Tests */}
-                  <h6 className="mt-4 mb-3">
-                    <i className="bi bi-clipboard2-check-fill text-primary"></i> Recommended Verification Tests at Hospital:
-                  </h6>
-                  <div className="table-responsive">
-                    <table className="table table-sm table-bordered align-middle">
-                      <thead className="table-light">
-                        <tr>
-                          <th>#</th>
-                          <th>Test / Examination</th>
-                          <th>Purpose</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(initialDx.verification_tests ?? []).map((test, index) => (
-                          <tr key={`${index}-${test.test}`}>
-                            <td>
-                              <span className={`badge bg-${safeDxColor(initialDx.severity_color)}`}>{index + 1}</span>
-                            </td>
-                            <td className="fw-semibold">{test.test}</td>
-                            <td>{test.purpose}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Hospital Preparation */}
-                  <h6 className="mt-4 mb-3">
-                    <i className="bi bi-hospital-fill text-dark"></i> Hospital Preparation Checklist:
-                  </h6>
-                  <HospitalPreparationCards items={initialDx.hospital_preparation} compact />
-                </>
-              ) : (
-                <>
-                  <h6 className="mt-4 mb-3">Required Hospital Actions:</h6>
-                  <div className="action-box bg-light p-3 border-left-danger">
-                    <ul>
-                      <li>Prepare emergency department with appropriate medical team</li>
-                      <li>Alert relevant specialist departments based on risk assessment</li>
-                      <li>Ensure ICU availability if high-risk classification</li>
-                      <li>Prepare diagnostic equipment (ECG, imaging, laboratory)</li>
-                      <li>Have emergency medications and resuscitation equipment ready</li>
-                    </ul>
-                  </div>
-                </>
-              )}
-
-              <div className="alert alert-info mt-4" role="alert">
-                <i className="bi bi-info-circle-fill"></i> <strong>Report Generated:</strong> This is an AI-assisted pre-arrival summary. Final clinical decisions
-                must be made by qualified medical professionals upon patient arrival at the hospital.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+          <Callout tone="info" icon={Info} title="Report generated">
+            This is an AI-assisted pre-arrival summary. Final clinical decisions must be made by qualified medical professionals upon patient arrival at the hospital.
+          </Callout>
+        </CardBody>
+      </Card>
+    </div>
   )
 }
 
-/** Key Findings list (live version from static/live_summary.js updateKeyFindings()). */
+function Field({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-ink-3">{label}</dt>
+      <dd className={cn('mt-1 text-sm font-medium break-words text-ink', mono && 'font-mono text-[13px]')}>{value}</dd>
+    </div>
+  )
+}
+
+function SectionTitle({ icon: IconCmp, children }: { icon: Icon; children: ReactNode }) {
+  return (
+    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+      <IconCmp size={16} weight="bold" aria-hidden className="text-ink-3" />
+      {children}
+    </h3>
+  )
+}
+
+/** Key findings, recomputed from the live readings. */
 function KeyFindings({ data, live }: { data: DoctorSummaryPayload; live: LiveVitalsResponse | null }) {
   const initialRaw = data.demo_assessment.sensors as Record<string, unknown>
   const raw = live?.raw ?? {
@@ -321,18 +285,32 @@ function KeyFindings({ data, live }: { data: DoctorSummaryPayload; live: LiveVit
   const visual = live?.camera_overall_risk ?? (data.camera ? data.camera.overall_risk : 'Not available')
   const hr = Number(raw.heart_rate)
   const spo2 = Number(raw.spo2)
+  const hrNormal = hr >= 60 && hr <= 100
+  const spo2Ok = spo2 >= 95
+
+  const rows: { label: string; value: string; note?: string; ok?: boolean }[] = [
+    { label: 'Cardiac status', value: `${raw.heart_rate} BPM`, note: hrNormal ? 'Normal range' : 'Abnormal', ok: hrNormal },
+    { label: 'Oxygenation', value: `${raw.spo2}% SpO₂`, note: spo2Ok ? 'Adequate' : 'Requiring intervention', ok: spo2Ok },
+    { label: 'Blood pressure', value: `${raw.blood_pressure} mmHg` },
+    { label: 'Temperature', value: `${raw.temp}°F` },
+    { label: 'Visual assessment', value: visual || 'Not available' },
+  ]
 
   return (
-    <ul id="liveKeyFindings">
-      <li>
-        Cardiac status: {raw.heart_rate} BPM ({hr >= 60 && hr <= 100 ? 'Normal range' : 'Abnormal'})
-      </li>
-      <li>
-        Oxygenation: {raw.spo2}% SpO₂ ({spo2 >= 95 ? 'Adequate' : 'Requiring intervention'})
-      </li>
-      <li>Blood Pressure: {raw.blood_pressure} mmHg</li>
-      <li>Temperature: {raw.temp}°F</li>
-      <li>Visual Assessment: {visual || 'Not available'}</li>
-    </ul>
+    <dl id="liveKeyFindings" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+      {rows.map(row => (
+        <div key={row.label} className="min-w-0 rounded-[var(--radius-control)] bg-surface-2/60 px-3 py-2.5">
+          <dt className="text-xs text-ink-3">{row.label}</dt>
+          <dd className="tabular mt-1 text-sm font-semibold text-ink">{row.value}</dd>
+          {row.note && (
+            <dd className="mt-1.5">
+              <Badge tone={row.ok ? 'ok' : 'warn'} status>
+                {row.note}
+              </Badge>
+            </dd>
+          )}
+        </div>
+      ))}
+    </dl>
   )
 }

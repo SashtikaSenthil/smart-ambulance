@@ -1,25 +1,26 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
+import { MotionConfig } from 'motion/react'
 
-// Same stylesheet stack as the original pages: Bootstrap 5.3 + Bootstrap Icons + legacy CSS.
-import 'bootstrap/dist/css/bootstrap.min.css'
-import 'bootstrap-icons/font/bootstrap-icons.css'
 import './index.css'
-import './styles/legacy/style.css'
-import './styles/legacy/analytics.css'
-import './styles/legacy/live_summary.css'
 
 import App from './App.tsx'
-import { applyTheme, readStoredTheme } from './utils/theme'
+import { ThemeProvider } from './theme/ThemeProvider'
+import { applyResolvedTheme, readThemePreference, resolveTheme } from './utils/theme'
 
-// Apply the stored theme before the first render (avoids a light-theme flash).
-applyTheme(readStoredTheme() ?? 'light')
+// Apply the theme before the first paint (no light flash for dark-mode users).
+applyResolvedTheme(resolveTheme(readThemePreference()))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ThemeProvider>
+      {/* Respect prefers-reduced-motion everywhere: transforms/layout animations are skipped. */}
+      <MotionConfig reducedMotion="user">
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </MotionConfig>
+    </ThemeProvider>
   </StrictMode>,
 )

@@ -3,6 +3,9 @@
 
 export type Tone = 'ok' | 'warn' | 'serious' | 'crit' | 'info' | 'accent' | 'neutral'
 
+/** Decorative card colour families (not status). */
+export type Tint = 'rose' | 'sky' | 'violet' | 'amber' | 'emerald' | 'teal' | 'indigo' | 'fuchsia'
+
 export const TONE_SOFT: Record<Tone, string> = {
   ok: 'bg-ok-soft text-ok-ink',
   warn: 'bg-warn-soft text-warn-ink',
@@ -41,6 +44,17 @@ export const TONE_BORDER: Record<Tone, string> = {
   info: 'border-info',
   accent: 'border-accent',
   neutral: 'border-line-strong',
+}
+
+/** Left-edge accent only (keeps the other three borders neutral). */
+export const TONE_BORDER_L: Record<Tone, string> = {
+  ok: 'border-l-ok',
+  warn: 'border-l-warn',
+  serious: 'border-l-serious',
+  crit: 'border-l-crit',
+  info: 'border-l-info',
+  accent: 'border-l-accent',
+  neutral: 'border-l-line-strong',
 }
 
 /** Camera / vision risk ("Low" | "Medium" | "High" | "Pending"), case-insensitive. */

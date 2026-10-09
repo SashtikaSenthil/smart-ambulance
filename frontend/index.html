@@ -3,8 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="AI Ambulance: live pre-hospital patient monitoring, rule-based clinical summaries and hospital handoff." />
+    <meta name="theme-color" content="#f4f7f8" />
+    <meta name="color-scheme" content="light dark" />
     <title>AI Ambulance Dashboard - Medical Admin</title>
+    <script>
+      // Apply the saved/system theme before CSS paints (prevents a light flash in dark mode).
+      try {
+        var t = localStorage.getItem('dashboard-theme')
+        var dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) document.documentElement.classList.add('dark')
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

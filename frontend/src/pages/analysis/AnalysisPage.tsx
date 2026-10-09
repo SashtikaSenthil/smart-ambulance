@@ -1,18 +1,25 @@
 import { useMemo } from 'react'
 import type { TooltipItem } from 'chart.js'
+import { Camera, ClipboardText, Cpu, FirstAidKit, Hospital, Robot, Stethoscope, UserCircle, type Icon } from '@phosphor-icons/react'
 import type { AnalysisPayload, Diagnosis } from '../../api/types'
-import { BulletRows } from '../../components/BulletRows'
+import { BulletList } from '../../components/BulletList'
 import { ChartCanvas } from '../../components/charts/ChartCanvas'
+import { axes, withAlpha } from '../../components/charts/chartTheme'
 import { HospitalPreparationCards } from '../../components/diagnosis/HospitalPreparationCards'
+import { VerificationTestList } from '../../components/diagnosis/VerificationTestList'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { LiveClinicalSummaryCard } from '../../components/live/LiveClinicalSummary'
-import { LiveText } from '../../components/live/LiveText'
+import { LiveValue } from '../../components/live/LiveValue'
 import { PageState } from '../../components/PageState'
+import { Badge } from '../../components/ui/Badge'
+import { Card, CardBody, CardHeader } from '../../components/ui/Card'
+import { cn } from '../../components/ui/cn'
 import { useAnonymousMode } from '../../hooks/useAnonymousMode'
 import { useApi } from '../../hooks/useApi'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useLiveVitals } from '../../hooks/useLiveVitals'
-import { clampScore, computeAnalysisScores, cssToken } from '../../utils/analysisScores'
-import { analysisCameraColor, safeDxColor } from '../../utils/riskStyles'
+import { clampScore, computeAnalysisScores } from '../../utils/analysisScores'
+import { aiRiskTone, cameraRiskTone, diagnosisTone, plainDashes, TONE_BORDER_L, TONE_SOFT, type Tint } from '../../utils/tones'
 
 export function AnalysisPage() {
   useDocumentTitle('Patient Analysis - AI Ambulance System')
@@ -22,11 +29,7 @@ export function AnalysisPage() {
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h4 className="mb-0">Patient &amp; AI Analysis</h4>
-        </div>
-      </div>
+      <PageHeader title="Patient & AI analysis" description="Health record, AI prediction, the live clinical summary and hospital preparation in one view." />
       {page.data ? <AnalysisContent data={page.data} live={live} /> : <PageState loading={page.loading} error={page.error} onRetry={page.reload} />}
     </>
   )
@@ -38,246 +41,189 @@ function AnalysisContent({ data, live }: { data: AnalysisPayload; live: ReturnTy
   const dx = live.data?.diagnosis ?? camera.diagnosis
 
   return (
-    <>
-      <div className="row g-3 mb-4">
-        <div className="col-lg-6">
-          <div className="card h-100 animate-in analysis-glass">
-            <div className="card-header bg-primary text-white">
-              <i className="bi bi-person-fill"></i> Patient Health Record (PHR)
-            </div>
-            <div className="card-body">
-              <div className="row">
-                <div className="col-md-6">
-                  <p className="mb-2">
-                    <strong>Name:</strong> {patient.name}
-                  </p>
-                  <p className="mb-2">
-                    <strong>ID:</strong> {patient.id}
-                  </p>
-                  <p className="mb-2">
-                    <strong>DOB:</strong> {patient.dob}
-                  </p>
-                  <p className="mb-2">
-                    <strong>Age:</strong> {patient.age} years
-                  </p>
+    <div className="flex flex-col gap-6 lg:gap-8">
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        {/* Patient health record */}
+        <Card tint="indigo">
+          <CardHeader icon={UserCircle} title="Patient health record" />
+          <CardBody>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-1">
+                <Field label="Name" value={patient.name} />
+                <Field label="ID" value={patient.id} mono />
+                <Field label="Date of birth" value={patient.dob} />
+                <Field label="Age" value={`${patient.age} years`} />
+              </dl>
+              {anonymousMode ? (
+                <div className={cn('self-start rounded-[var(--radius-control)] p-4 text-sm', TONE_SOFT.warn)}>
+                  <p className="font-semibold">History unavailable</p>
+                  <p className="mt-1 leading-relaxed">Diagnosis based on real-time physiological stress. Past conditions and allergies are hidden in anonymous intake mode.</p>
                 </div>
-                <div className="col-md-6">
-                  {anonymousMode ? (
-                    <>
-                      <p className="mb-2 text-danger fw-semibold">History Unavailable: Diagnosis based on real-time physiological stress.</p>
-                      <p className="text-muted mb-0">Past conditions and allergy fields are hidden for Anonymous Intake mode.</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="mb-2">
-                        <strong>Chronic Conditions:</strong>
-                      </p>
-                      <p className="text-muted">{patient.past_conditions}</p>
-                      <p className="mb-2">
-                        <strong>Critical Allergies:</strong>
-                      </p>
-                      <p className="text-danger fw-bold pulse-risk">{patient.allergies}</p>
-                    </>
-                  )}
-                </div>
-              </div>
+              ) : (
+                <dl className="flex flex-col gap-3">
+                  <Field label="Chronic conditions" value={patient.past_conditions} />
+                  <div>
+                    <dt className="text-xs text-ink-3">Critical allergies</dt>
+                    <dd className="mt-1.5">
+                      <Badge tone="crit" status size="md">
+                        {patient.allergies}
+                      </Badge>
+                    </dd>
+                  </div>
+                </dl>
+              )}
             </div>
-          </div>
-        </div>
+          </CardBody>
+        </Card>
 
-        <div className="col-lg-6">
-          <div className="card h-100 border-danger animate-in delay-1 analysis-glass">
-            <div className="card-header bg-danger text-white">
-              <i className="bi bi-robot"></i> AI Prediction Engine
-            </div>
-            <div className="card-body">
-              <h5 className="text-danger">
-                <LiveText id="livePrimaryRisk" value={ai.primary_risk} />{' '}
-                <LiveText className="badge bg-danger" id="liveRiskLevel" value={`${ai.risk_level} RISK`} />
-              </h5>
-              <p className="mb-2">
-                <strong>AI Confidence Score:</strong> <LiveText id="aiConfidenceText" value={ai.confidence} />
+        {/* AI prediction engine */}
+        <Card delay={0.05} tint="violet">
+          <CardHeader icon={Robot} title="AI prediction engine" />
+          <CardBody className="flex flex-col gap-5">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <LiveValue as="h3" id="livePrimaryRisk" tween={false} value={ai.primary_risk} className="rounded-md text-xl leading-snug font-semibold text-ink" />
+                <Badge tone={aiRiskTone(ai.risk_level)} status size="md">
+                  <span id="liveRiskLevel">{ai.risk_level} risk</span>
+                </Badge>
+              </div>
+              <p className="mt-2 text-sm text-ink-3">
+                AI confidence score <LiveValue id="aiConfidenceText" value={ai.confidence} className="tabular ml-1 rounded-md font-semibold text-ink" />
               </p>
-              <div className="mt-3">
-                <strong>Flagged Indicators:</strong>
-                <div className="mt-2" id="liveIndicators">
-                  <BulletRows items={ai.indicators} />
-                </div>
+            </div>
+            <div>
+              <h4 className="mb-2.5 text-sm font-semibold text-ink">Flagged indicators</h4>
+              <div id="liveIndicators" className="flex flex-wrap gap-2">
+                {ai.indicators.length > 0 ? (
+                  ai.indicators.map(indicator => (
+                    <Badge key={indicator} tone="neutral" size="md">
+                      {indicator}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-sm text-ink-3">No indicators flagged.</p>
+                )}
               </div>
             </div>
-          </div>
-        </div>
+          </CardBody>
+        </Card>
       </div>
 
-      <LiveClinicalSummaryCard
-        title="Live Vitals & Clinical Summary"
-        live={live.data}
-        error={live.error}
-        lastUpdated={live.lastUpdated}
-        showVitals
-        cardClassName="animate-in delay-1 analysis-glass"
-      />
+      <LiveClinicalSummaryCard title="Live vitals & clinical summary" live={live.data} error={live.error} lastUpdated={live.lastUpdated} showVitals />
 
-      <div className="row g-3 mb-4">
-        <div className="col-lg-6">
-          <div className="card h-100 animate-in delay-2 analysis-glass">
-            <div className="card-header bg-primary text-white">
-              <i className="bi bi-cpu-fill"></i> Internal Summary
-            </div>
-            <div className="card-body" id="liveInternalSummary">
-              {ai.internal_summary?.length ? <BulletRows items={ai.internal_summary} /> : <p className="text-muted mb-0">Internal summary is being generated...</p>}
-            </div>
-          </div>
-        </div>
-
-        <div className="col-lg-6">
-          <div className="card h-100 animate-in delay-2 analysis-glass">
-            <div className="card-header bg-info text-white">
-              <i className="bi bi-clipboard2-pulse-fill"></i> External Summary
-            </div>
-            <div className="card-body" id="liveExternalSummary">
-              {ai.external_summary?.length ? <BulletRows items={ai.external_summary} /> : <p className="text-muted mb-0">External summary is being generated...</p>}
-            </div>
-          </div>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <SummaryCard icon={Cpu} tint="sky" title="Internal summary" id="liveInternalSummary" items={ai.internal_summary} empty="Internal summary is being generated..." />
+        <SummaryCard icon={ClipboardText} tint="emerald" title="External summary" id="liveExternalSummary" items={ai.external_summary} empty="External summary is being generated..." delay={0.05} />
       </div>
 
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card animate-in delay-2 analysis-glass">
-            <div className="card-header bg-info text-white">
-              <i className="bi bi-camera-video-fill"></i> Camera AI Analysis
+      {/* Camera AI analysis */}
+      <Card tint="fuchsia">
+        <CardHeader
+          icon={Camera}
+          title="Camera AI analysis"
+          aside={
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={cameraRiskTone(camera.bleeding_risk)} status size="md">
+                Bleeding: {camera.bleeding_risk}
+              </Badge>
+              <Badge tone={cameraRiskTone(camera.movement_risk)} status size="md">
+                Movement: {camera.movement_risk}
+              </Badge>
+              <Badge tone={cameraRiskTone(camera.posture_risk)} status size="md">
+                Posture: {camera.posture_risk}
+              </Badge>
             </div>
-            <div className="card-body">
-              {/* Risk Level Badges */}
-              <div className="d-flex flex-wrap gap-3 mb-3">
-                <span className={`badge bg-${analysisCameraColor(camera.bleeding_risk)} px-3 py-2`}>
-                  <i className="bi bi-droplet-fill"></i> Bleeding: {camera.bleeding_risk}
-                </span>
-                <span className={`badge bg-${analysisCameraColor(camera.movement_risk)} px-3 py-2`}>
-                  <i className="bi bi-person-walking"></i> Movement: {camera.movement_risk}
-                </span>
-                <span className={`badge bg-${analysisCameraColor(camera.posture_risk)} px-3 py-2`}>
-                  <i className="bi bi-person-fill"></i> Posture: {camera.posture_risk}
-                </span>
-              </div>
-
-              {/* Observation Summary */}
-              <div className="mb-3">
-                <strong>Observation Summary:</strong>
-                <div className="mt-2">
-                  <BulletRows items={camera.summary} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+          }
+        />
+        <CardBody>
+          <h4 className="mb-2.5 text-sm font-semibold text-ink">Observation summary</h4>
+          <BulletList items={camera.summary} />
+        </CardBody>
+      </Card>
 
       {dx && <DiagnosisSections dx={dx} />}
 
       <AnalysisCharts data={data} />
-    </>
+    </div>
+  )
+}
+
+function Field({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-ink-3">{label}</dt>
+      <dd className={cn('mt-1 text-sm font-medium break-words text-ink', mono && 'font-mono text-[13px]')}>{value}</dd>
+    </div>
+  )
+}
+
+function SummaryCard({ icon, tint, title, id, items, empty, delay = 0 }: { icon: Icon; tint: Tint; title: string; id: string; items: string[]; empty: string; delay?: number }) {
+  return (
+    <Card delay={delay} tint={tint}>
+      <CardHeader icon={icon} title={title} />
+      <CardBody>
+        <div id={id}>{items?.length ? <BulletList items={items} /> : <p className="text-sm text-ink-3">{empty}</p>}</div>
+      </CardBody>
+    </Card>
   )
 }
 
 function DiagnosisSections({ dx }: { dx: Diagnosis }) {
-  const color = safeDxColor(dx.severity_color)
+  const tone = diagnosisTone(dx.severity_color)
   return (
     <>
-      {/* DIAGNOSTIC INTELLIGENCE – Probable Condition */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div id="combinedDiagnosisCard" className={`card animate-in delay-2 analysis-glass border-${color}`}>
-            <div id="combinedDiagnosisHeader" className={`card-header bg-${color} text-white d-flex justify-content-between align-items-center`}>
-              <span>
-                <i className="bi bi-search-heart"></i> Probable Condition Identified
-              </span>
-              <span id="combinedDiagnosisSeverity" className="badge bg-light text-dark px-3 py-2">
-                Severity: {dx.severity || 'Unknown'}
-              </span>
-            </div>
-            <div className="card-body">
-              <h5 id="combinedDiagnosisCondition" className={`text-${color} fw-bold mb-2`}>
-                <i className="bi bi-exclamation-triangle-fill"></i>{' '}
-                <span>{dx.condition || 'Unclassified Visual Pattern – Requires Clinical Correlation'}</span>
-              </h5>
-              <p id="combinedDiagnosisDescription" className="mb-3 diagnosis-description">
-                {dx.description || 'No diagnosis description available.'}
-              </p>
-
-              <strong>Probable Causes:</strong>
-              <div id="combinedDiagnosisCauses" className="mt-2 mb-3">
-                {(dx.probable_causes ?? []).map(cause => (
-                  <div className="bullet-row" key={cause}>
-                    <i className={`bi bi-chevron-right text-${color}`}></i> {cause}
-                  </div>
-                ))}
-              </div>
+      {/* Probable condition */}
+      <Card id="combinedDiagnosisCard" className={cn('border-l-4', TONE_BORDER_L[tone])}>
+        <CardHeader
+          icon={Stethoscope}
+          tone={tone}
+          title="Probable condition identified"
+          aside={
+            <Badge tone={tone} status size="md">
+              <span id="combinedDiagnosisSeverity">Severity: {dx.severity || 'Unknown'}</span>
+            </Badge>
+          }
+        />
+        <CardBody className="flex flex-col gap-4">
+          <h3 id="combinedDiagnosisCondition" className="text-xl leading-snug font-semibold text-ink">
+            {plainDashes(dx.condition || 'Unclassified visual pattern: requires clinical correlation')}
+          </h3>
+          <p id="combinedDiagnosisDescription" className="max-w-[80ch] text-[15px] leading-relaxed text-ink-2">
+            {plainDashes(dx.description || 'No diagnosis description available.')}
+          </p>
+          <div>
+            <h4 className="mb-2.5 text-sm font-semibold text-ink">Probable causes</h4>
+            <div id="combinedDiagnosisCauses">
+              <BulletList items={dx.probable_causes} />
             </div>
           </div>
-        </div>
-      </div>
+        </CardBody>
+      </Card>
 
-      {/* VERIFICATION TESTS – What to check at hospital */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card animate-in delay-2 analysis-glass">
-            <div className="card-header bg-primary text-white">
-              <i className="bi bi-clipboard2-check-fill"></i> Recommended Verification Tests
-            </div>
-            <div className="card-body">
-              <p className="text-muted mb-3">
-                The following tests are recommended once the patient arrives at the hospital to confirm or rule out the suspected condition.
-              </p>
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th className="verify-col-num">#</th>
-                      <th className="verify-col-test">Test / Examination</th>
-                      <th className="verify-col-purpose">Purpose</th>
-                    </tr>
-                  </thead>
-                  <tbody id="combinedDiagnosisTests">
-                    {(dx.verification_tests ?? []).map((test, idx) => (
-                      <tr key={`${idx}-${test.test}`}>
-                        <td>
-                          <span className={`badge bg-${color}`}>{idx + 1}</span>
-                        </td>
-                        <td className="fw-semibold">{test.test}</td>
-                        <td>{test.purpose}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+      {/* Verification tests */}
+      <Card tint="sky">
+        <CardHeader icon={FirstAidKit} title="Recommended verification tests" description="Tests to run once the patient arrives at the hospital, to confirm or rule out the suspected condition." />
+        <CardBody>
+          <div id="combinedDiagnosisTests">
+            <VerificationTestList tests={dx.verification_tests ?? []} tone={tone} />
           </div>
-        </div>
-      </div>
+        </CardBody>
+      </Card>
 
-      {/* HOSPITAL PREPARATION – What to ready before arrival */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card animate-in delay-2 analysis-glass">
-            <div className="card-header bg-dark text-white">
-              <i className="bi bi-hospital-fill"></i> Hospital Preparation Recommendations
-            </div>
-            <div className="card-body">
-              <p className="text-muted mb-3">
-                Based on the AI camera analysis, the following preparations are recommended so the hospital is ready when the ambulance arrives.
-              </p>
-              <HospitalPreparationCards id="combinedDiagnosisPreparation" items={dx.hospital_preparation} />
-            </div>
+      {/* Hospital preparation */}
+      <Card tint="emerald">
+        <CardHeader icon={Hospital} title="Hospital preparation" description="What the receiving hospital should have ready when the ambulance arrives." />
+        <CardBody>
+          <div id="combinedDiagnosisPreparation">
+            <HospitalPreparationCards items={dx.hospital_preparation} />
           </div>
-        </div>
-      </div>
+        </CardBody>
+      </Card>
     </>
   )
 }
 
-/** The three analysis charts - computed once from the initial page data, exactly like the original page. */
+/** The three analysis charts, computed once from the initial page data (as in the original page). */
 function AnalysisCharts({ data }: { data: AnalysisPayload }) {
   const scores = useMemo(
     () =>
@@ -297,168 +243,129 @@ function AnalysisCharts({ data }: { data: AnalysisPayload }) {
     [data],
   )
 
-  const tokens = () => ({
-    primary: cssToken('--primary', '#1f7a8c'),
-    danger: cssToken('--danger', '#e5727f'),
-    warning: cssToken('--warning', '#f2ad59'),
-    success: cssToken('--success', '#35b57b'),
-  })
+  const contribution = [
+    { label: 'Physiology instability', value: Math.max(5, scores.physiologySeverity), swatch: 'bg-[var(--series-1)]' },
+    { label: 'AI critical indicators', value: Math.max(5, scores.aiSignalScore), swatch: 'bg-[var(--series-2)]' },
+    { label: 'Camera severity', value: Math.max(5, scores.cameraSeverityAvg), swatch: 'bg-[var(--series-3)]' },
+  ]
 
   return (
     <>
-      <div className="row g-3 mb-4">
-        <div className="col-lg-6">
-          <div className="chart-card animate-in delay-1 analysis-glass">
-            <div className="chart-card-header">
-              <h6 className="mb-0">Emergency Signal Contribution</h6>
-            </div>
-            <div className="chart-container">
-              <ChartCanvas
-                id="riskIndicatorChart"
-                height={260}
-                deps={[scores]}
-                createConfig={() => {
-                  const t = tokens()
-                  return {
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <Card tint="rose">
+          <CardHeader title="Emergency signal contribution" description="Severity of each signal source, out of 100." />
+          <CardBody>
+            <div className="grid items-center gap-6 sm:grid-cols-[minmax(0,12rem)_1fr]">
+              <div className="relative mx-auto aspect-square w-full max-w-[12rem]">
+                <ChartCanvas
+                  id="riskIndicatorChart"
+                  label="Emergency signal contribution doughnut chart"
+                  deps={[scores]}
+                  createConfig={t => ({
                     type: 'doughnut',
                     data: {
-                      labels: ['Physiology Instability', 'AI Critical Indicators', 'Camera Severity'],
-                      datasets: [
-                        {
-                          data: [Math.max(5, scores.physiologySeverity), Math.max(5, scores.aiSignalScore), Math.max(5, scores.cameraSeverityAvg)],
-                          backgroundColor: [t.danger, t.primary, t.warning],
-                          borderWidth: 0,
-                        },
-                      ],
+                      labels: contribution.map(item => item.label),
+                      datasets: [{ data: contribution.map(item => item.value), backgroundColor: t.series.slice(0, 3), spacing: 2 }],
                     },
                     options: {
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      animation: { duration: 1200 },
-                      plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: { callbacks: { label: (context: TooltipItem<'doughnut'>) => `${context.label}: ${context.raw}/100 severity` } },
-                      },
-                    },
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="col-lg-6">
-          <div className="chart-card animate-in delay-2 analysis-glass">
-            <div className="chart-card-header">
-              <h6 className="mb-0">Immediate Intervention Priorities</h6>
-            </div>
-            <div className="chart-container">
-              <ChartCanvas
-                id="confidenceComparisonChart"
-                height={260}
-                deps={[scores]}
-                createConfig={() => {
-                  const t = tokens()
-                  return {
-                    type: 'bar',
-                    data: {
-                      labels: ['Airway Support', 'Circulation Control', 'Neuro/Trauma Eval', 'Medication Readiness'],
-                      datasets: [
-                        {
-                          label: 'Priority Score',
-                          data: [scores.airwayPriority, scores.circulationPriority, scores.neuroTraumaPriority, scores.medicationPriority],
-                          backgroundColor: [t.warning, t.danger, t.primary, t.success],
-                          borderRadius: 8,
-                        },
-                      ],
-                    },
-                    options: {
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      scales: { y: { beginAtZero: true, max: 100 } },
-                      animation: { duration: 1400 },
+                      cutout: '68%',
+                      animation: { duration: 1000 },
+                      interaction: { mode: 'nearest', intersect: true },
                       plugins: {
                         legend: { display: false },
-                        tooltip: { callbacks: { label: (context: TooltipItem<'bar'>) => `Priority: ${context.raw}/100` } },
+                        tooltip: { callbacks: { label: (context: TooltipItem<'doughnut'>) => ` ${context.label}: ${context.raw}/100 severity` } },
                       },
                     },
-                  }
-                }}
-              />
+                  })}
+                />
+              </div>
+              <ul className="flex flex-col gap-3">
+                {contribution.map(item => (
+                  <li key={item.label} className="flex items-center gap-3 text-sm">
+                    <span aria-hidden className={cn('size-2.5 shrink-0 rounded-full', item.swatch)} />
+                    <span className="min-w-0 flex-1 text-ink-2">{item.label}</span>
+                    <span className="tabular font-semibold text-ink">{item.value}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
-        </div>
-      </div>
+          </CardBody>
+        </Card>
 
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="chart-card animate-in delay-2 analysis-glass">
-            <div className="chart-card-header">
-              <h6 className="mb-0">Emergency Trajectory (Last 20 Minutes)</h6>
-            </div>
-            <div className="chart-container">
+        <Card delay={0.05} tint="amber">
+          <CardHeader title="Immediate intervention priorities" description="Priority score per intervention area, out of 100." />
+          <CardBody>
+            <div className="relative h-64 sm:h-72">
               <ChartCanvas
-                id="riskTrendWaveChart"
-                height={250}
+                id="confidenceComparisonChart"
+                label="Immediate intervention priorities bar chart"
                 deps={[scores]}
-                createConfig={ctx => {
-                  const t = tokens()
-                  const overall = scores.overallEmergencyScore
-                  const airway = scores.airwayPriority
-                  const baseSeries = [12, 8, 5, 3, 0].map(offset => clampScore(overall + offset))
-                  const airwaySeries = [9, 6, 4, 2, 0].map(offset => clampScore(airway + offset))
-
-                  const gradientThisWeek = ctx.createLinearGradient(0, 0, 0, 260)
-                  gradientThisWeek.addColorStop(0, 'rgba(15, 154, 189, 0.24)')
-                  gradientThisWeek.addColorStop(1, 'rgba(15, 154, 189, 0.02)')
-
-                  const gradientPreviousWeek = ctx.createLinearGradient(0, 0, 0, 260)
-                  gradientPreviousWeek.addColorStop(0, 'rgba(229, 114, 127, 0.22)')
-                  gradientPreviousWeek.addColorStop(1, 'rgba(229, 114, 127, 0.02)')
-
-                  return {
-                    type: 'line',
-                    data: {
-                      labels: ['T-20 min', 'T-15 min', 'T-10 min', 'T-5 min', 'Now'],
-                      datasets: [
-                        {
-                          label: 'Composite Emergency Score',
-                          data: baseSeries,
-                          borderColor: t.primary,
-                          backgroundColor: gradientThisWeek,
-                          fill: true,
-                          tension: 0.48,
-                          borderWidth: 3,
-                          pointRadius: 4,
-                          pointHoverRadius: 6,
-                        },
-                        {
-                          label: 'Airway Distress Score',
-                          data: airwaySeries,
-                          borderColor: t.danger,
-                          backgroundColor: gradientPreviousWeek,
-                          fill: true,
-                          tension: 0.48,
-                          borderWidth: 3,
-                          pointRadius: 0,
-                        },
-                      ],
-                    },
-                    options: {
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: { legend: { position: 'top' } },
-                      scales: {
-                        y: { beginAtZero: true, min: 0, max: 100, grid: { color: 'rgba(140, 160, 180, 0.12)' } },
-                        x: { grid: { display: false } },
+                createConfig={t => ({
+                  type: 'bar',
+                  data: {
+                    labels: ['Airway support', 'Circulation control', 'Neuro / trauma eval', 'Medication readiness'],
+                    datasets: [
+                      {
+                        label: 'Priority score',
+                        data: [scores.airwayPriority, scores.circulationPriority, scores.neuroTraumaPriority, scores.medicationPriority],
+                        backgroundColor: t.tint,
+                        maxBarThickness: 24,
+                        borderRadius: 4,
+                        borderSkipped: 'start',
                       },
-                    },
-                  }
-                }}
+                    ],
+                  },
+                  options: {
+                    animation: { duration: 1100 },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context: TooltipItem<'bar'>) => ` Priority: ${context.raw}/100` } } },
+                    scales: axes(t, { yMin: 0, yMax: 100, beginAtZero: true }),
+                  },
+                })}
               />
             </div>
-          </div>
-        </div>
+          </CardBody>
+        </Card>
       </div>
+
+      <Card tint="indigo">
+        <CardHeader title="Emergency trajectory" description="Composite emergency and airway distress scores over the last 20 minutes." />
+        <CardBody>
+          <div className="relative h-64 sm:h-80">
+            <ChartCanvas
+              id="riskTrendWaveChart"
+              label="Emergency trajectory line chart over the last 20 minutes"
+              deps={[scores]}
+              createConfig={t => {
+                const baseSeries = [12, 8, 5, 3, 0].map(offset => clampScore(scores.overallEmergencyScore + offset))
+                const airwaySeries = [9, 6, 4, 2, 0].map(offset => clampScore(scores.airwayPriority + offset))
+                const line = (label: string, data: number[], color: string) => ({
+                  label,
+                  data,
+                  borderColor: color,
+                  backgroundColor: withAlpha(color, 0.1),
+                  fill: true,
+                  tension: 0.4,
+                  pointRadius: 4,
+                  pointBackgroundColor: color,
+                  pointBorderColor: t.surface,
+                  pointBorderWidth: 2,
+                })
+                return {
+                  type: 'line',
+                  data: {
+                    labels: ['T-20 min', 'T-15 min', 'T-10 min', 'T-5 min', 'Now'],
+                    datasets: [line('Composite emergency score', baseSeries, t.series[0]), line('Airway distress score', airwaySeries, t.series[1])],
+                  },
+                  options: {
+                    plugins: { legend: { position: 'top', align: 'start' } },
+                    scales: axes(t, { yMin: 0, yMax: 100, beginAtZero: true }),
+                  },
+                }
+              }}
+            />
+          </div>
+        </CardBody>
+      </Card>
     </>
   )
 }

@@ -19,7 +19,7 @@ export function PageHeader({ title, description, meta, actions }: PageHeaderProp
     >
       <div className="min-w-0">
         {meta && <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-ink-3">{meta}</div>}
-        <h1 className="text-[clamp(1.6rem,1.2rem+1.4vw,2.25rem)] leading-[1.1] font-semibold tracking-tight text-ink">{title}</h1>
+        <h1 className="text-[clamp(1.6rem,1.2rem+1.4vw,2.25rem)] leading-[1.1] font-extrabold tracking-[-0.025em] text-ink">{title}</h1>
         {description && <p className="mt-2 max-w-[65ch] text-[15px] leading-relaxed text-ink-2">{description}</p>}
       </div>
       {actions && (

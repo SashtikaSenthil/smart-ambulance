@@ -22,7 +22,7 @@ export function Switch({ id, checked, onChange, label, description }: SwitchProp
         onClick={() => onChange(!checked)}
         className={cn(
           'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200',
-          checked ? 'bg-accent' : 'bg-surface-3',
+          checked ? 'brand-gradient' : 'bg-surface-3',
         )}
       >
         <motion.span
