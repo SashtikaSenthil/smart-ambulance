@@ -1,0 +1,14 @@
+# Track only the frontend and backend folders - ignore everything else at the root.
+/*
+!/.gitignore
+!/frontend/
+!/backend/
+
+# Safety nets (also covered by each folder's own .gitignore)
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.py[cod]
+.env
+backend/data/

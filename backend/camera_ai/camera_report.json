@@ -1,79 +1,74 @@
 {
-    "bleeding_risk": "Low",
-    "movement_risk": "Medium",
+    "bleeding_risk": "Medium",
+    "movement_risk": "Low",
     "posture_risk": "Low",
     "summary": [
-        "Visual analysis indicates low bleeding risk.",
-        "Movement pattern classified as medium risk.",
+        "Visual analysis indicates medium bleeding risk.",
+        "Movement pattern classified as low risk.",
         "Body posture assessment shows low risk."
     ],
     "diagnosis": {
-        "condition": "Unclassified Visual Pattern \u2013 Requires Clinical Correlation",
+        "condition": "Minor to Moderate External Wound \u2013 Patient Alert",
         "severity": "Moderate",
         "severity_color": "info",
-        "description": "The combination of camera observations does not match a standard pattern. This may indicate an evolving situation or atypical presentation. Clinical correlation with sensor data and patient history is strongly recommended.",
+        "description": "Moderate external bleeding is visible, but the patient maintains normal movement and upright posture. This suggests a non-life-threatening wound with the patient remaining conscious and mobile. However, wound assessment is still essential to rule out deeper structural damage.",
         "probable_causes": [
-            "Atypical injury pattern",
-            "Mixed medical and traumatic presentation",
-            "Environmental or positional artifact in camera data"
+            "Superficial laceration or abrasion",
+            "Minor puncture wound",
+            "Nosebleed (epistaxis) or scalp wound",
+            "Post-fall skin tear or contusion with oozing"
         ],
         "verification_tests": [
             {
-                "test": "Full trauma survey (primary + secondary)",
-                "purpose": "Systematic head-to-toe examination"
+                "test": "Direct wound inspection",
+                "purpose": "Assess wound depth, length, and involvement of deeper structures"
             },
             {
-                "test": "Complete blood panel (CBC, BMP, Coag)",
-                "purpose": "Comprehensive baseline labs"
+                "test": "Neurovascular check distal to wound",
+                "purpose": "Ensure no nerve or vessel compromise"
             },
             {
-                "test": "CT Head + Chest + Abdomen/Pelvis",
-                "purpose": "Pan-scan to identify occult injury"
+                "test": "X-ray if bony tenderness present",
+                "purpose": "Rule out underlying fracture"
             },
             {
-                "test": "12-Lead ECG",
-                "purpose": "Rule out cardiac etiology"
-            },
-            {
-                "test": "Blood Glucose",
-                "purpose": "Rule out metabolic emergency"
+                "test": "Tetanus status verification",
+                "purpose": "Administer prophylaxis if needed"
             }
         ],
         "hospital_preparation": [
             {
                 "category": "Teams",
                 "details": [
-                    "Emergency medicine team for full evaluation",
-                    "Trauma team on low-threshold standby"
+                    "Emergency physician for wound management"
                 ]
             },
             {
                 "category": "Equipment",
                 "details": [
-                    "Full monitoring setup",
-                    "Advanced airway equipment ready",
-                    "Portable ultrasound"
+                    "Wound closure supplies (sutures, tissue adhesive)",
+                    "Local anesthetic kit"
                 ]
             },
             {
                 "category": "Supplies",
                 "details": [
-                    "Blood products on low-threshold order",
-                    "IV fluids and standard emergency medications"
+                    "Sterile wound irrigation solution",
+                    "Topical antibiotic ointment",
+                    "Tetanus toxoid if indicated"
                 ]
             },
             {
                 "category": "Room Setup",
                 "details": [
-                    "Monitored bed in ED resuscitation area",
-                    "CT scanner availability confirmed"
+                    "Minor procedure room with good lighting"
                 ]
             }
         ],
         "overall_risk": "Medium",
         "camera_inputs": {
-            "bleeding_risk": "Low",
-            "movement_risk": "Medium",
+            "bleeding_risk": "Medium",
+            "movement_risk": "Low",
             "posture_risk": "Low"
         },
         "history_unavailable": false
